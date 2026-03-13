@@ -6,53 +6,105 @@ import { Button } from "@/components/ui/Button";
 import {
     Users, FileText, UserCheck, TrendingUp,
     ChevronUp, ArrowRight, Activity, CheckCircle2,
-    SendHorizonal, LogIn, Stamp, Eye, RefreshCcw
+    SendHorizonal, LogIn, Stamp, Eye, RefreshCcw,
+    ArrowRightCircle, History, Clock, UserCog, Zap
 } from "lucide-react";
 import { mockCheques, mockUsers } from "@/lib/mock-data";
 import { formatCurrency, formatDate } from "@/lib/helpers";
-import { UserRole } from "@/lib/constants";
+import { UserRole, ChequeStatus } from "@/lib/constants";
 import Link from "next/link";
-import { motion } from "framer-motion";
+import { useState, useEffect } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 
 // ── Build a flat activity log from all cheque logs ──────────────
 interface ActivityEntry {
     id: string;
+    chequeId: string;
     chequeNumber: string;
     action: string;
-    performedBy: string;
-    performedByRole: string;
-    office?: string;
+    sentBy: string;
+    sentByRole: string;
+    officeSentTo: string;
+    takenBy: string;
+    status: 'Pending' | 'Verified' | 'Completed' | 'Returned';
     timestamp: string;
+}
+
+function getNextOffice(action: string): string {
+    switch (action) {
+        case 'SUBMITTED': return 'Customer Service';
+        case 'APPROVED_BY_CUSTOMER_SERVICE': return 'Branch Controller';
+        case 'VERIFIED_BY_BRANCH_CONTROLLER': return 'Teller / Treasury';
+        case 'FORWARDED_TO_TELLER': return 'Teller';
+        case 'AUTHORIZED_BY_TELLER': return 'Treasury';
+        case 'PAID': return 'DONE';
+        case 'RETURNED_FOR_ADJUSTMENT': return 'User';
+        default: return 'Next Phase';
+    }
+}
+
+function getPrevOffice(action: string): string {
+    switch (action) {
+        case 'SUBMITTED': return 'User Home';
+        case 'APPROVED_BY_CUSTOMER_SERVICE': return 'Customer Service';
+        case 'VERIFIED_BY_BRANCH_CONTROLLER': return 'Branch Controller';
+        case 'FORWARDED_TO_TELLER': return 'Branch Controller';
+        case 'AUTHORIZED_BY_TELLER': return 'Teller';
+        case 'PAID': return 'Treasury';
+        case 'RETURNED_FOR_ADJUSTMENT': return 'Bank Office';
+        default: return 'Previous Phase';
+    }
 }
 
 function buildActivityLog(): ActivityEntry[] {
     const entries: ActivityEntry[] = [];
     mockCheques.forEach(cheque => {
-        (cheque.logs ?? []).forEach(log => {
+        const sortedLogs = [...(cheque.logs ?? [])].sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+
+        // 1. Add historical logs (Verified actions)
+        sortedLogs.forEach((log, index) => {
+            const prevLog = index > 0 ? sortedLogs[index - 1] : null;
+            let sentBy = cheque.accountName;
+            let sentByRole = 'Customer';
+            
+            if (prevLog) {
+                sentBy = prevLog.performedBy;
+                sentByRole = prevLog.performedByRole.replace(/_/g, ' ');
+            }
+
             entries.push({
                 id: log.id,
+                chequeId: cheque.id,
                 chequeNumber: cheque.chequeNumber,
                 action: log.action,
-                performedBy: log.performedBy,
-                performedByRole: log.performedByRole,
-                office: cheque.currentOffice,
+                sentBy: sentBy,
+                sentByRole: sentByRole,
+                officeSentTo: getNextOffice(log.action),
+                takenBy: log.performedBy,
+                status: log.action === 'PAID' ? 'Completed' : (log.action.includes('RETURNED') ? 'Returned' : 'Verified'),
                 timestamp: log.timestamp,
             });
         });
-        // also show the cheque itself as a submission event if no log covers it
-        if (!cheque.logs || cheque.logs.length === 0) {
+
+        // 2. Add "In-Flight" pending state if not finished
+        const isFinished = cheque.status === 'PAID' || cheque.status.includes('RETURNED');
+        if (!isFinished) {
+            const lastLog = sortedLogs[sortedLogs.length - 1];
             entries.push({
-                id: `auto-${cheque.id}`,
+                id: `pending-${cheque.id}`,
+                chequeId: cheque.id,
                 chequeNumber: cheque.chequeNumber,
-                action: cheque.status,
-                performedBy: cheque.accountName,
-                performedByRole: UserRole.USER,
-                office: cheque.currentOffice,
-                timestamp: cheque.submittedAt,
+                action: 'AWAITING_ACTION',
+                sentBy: lastLog ? lastLog.performedBy : cheque.accountName,
+                sentByRole: lastLog ? lastLog.performedByRole.replace(/_/g, ' ') : 'Customer',
+                officeSentTo: cheque.currentOffice,
+                takenBy: 'Not Taken',
+                status: 'Pending',
+                timestamp: new Date().toISOString(), // Current state
             });
         }
     });
-    // sort newest first
+
     return entries.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
 }
 
@@ -64,6 +116,10 @@ const ACTION_META: Record<string, { label: string; color: string; bg: string; Ic
     PAID: { label: "Payment Released", color: "text-emerald-600", bg: "bg-emerald-50", Icon: TrendingUp },
     RETURNED_FOR_ADJUSTMENT: { label: "Returned for Fix", color: "text-red-500", bg: "bg-red-50", Icon: RefreshCcw },
     FORWARDED: { label: "Forwarded", color: "text-blue-600", bg: "bg-blue-50", Icon: SendHorizonal },
+    SUBMISSION_PENDING: { label: "Entry Initiated", color: "text-amber-600", bg: "bg-amber-50", Icon: History },
+    VERIFIED_BY_BRANCH_CONTROLLER: { label: "BC Verified", color: "text-violet-600", bg: "bg-violet-50", Icon: Stamp },
+    FORWARDED_TO_TELLER: { label: "Sent to Teller", color: "text-cyan-600", bg: "bg-cyan-50", Icon: SendHorizonal },
+    AWAITING_ACTION: { label: "Awaiting Action", color: "text-amber-600", bg: "bg-amber-100/50", Icon: Clock },
 };
 
 function getActionMeta(action: string) {
@@ -76,7 +132,11 @@ export default function AdminDashboard() {
     const settledValue = formatCurrency(mockCheques.filter(c => c.status === 'PAID').reduce((t, c) => t + c.amount, 0));
     const totalUsers = mockUsers.filter(u => u.role === UserRole.USER).length;
 
-    const activityLog = buildActivityLog();
+    const [activityLog, setActivityLog] = useState<ActivityEntry[]>([]);
+
+    useEffect(() => {
+        setActivityLog(buildActivityLog());
+    }, []);
 
     const stats = [
         {
@@ -174,65 +234,97 @@ export default function AdminDashboard() {
                             </Link>
                         }
                     />
-                    <Table>
-                        <THead>
-                            <TR>
-                                <TH>Cheque Ref</TH>
-                                <TH>Action</TH>
-                                <TH>Performed By</TH>
-                                <TH>Role / Office</TH>
-                                <TH>Timestamp</TH>
+                    <Table className="border-separate border-spacing-y-2 px-4 pb-4">
+                        <THead className="bg-zinc-50/50">
+                        
+                            <TR className="hover:bg-transparent border-none">
+                                <TH className="text-[10px] font-black uppercase tracking-[0.15em] text-zinc-400 py-4">Cheque Ref</TH>
+                                <TH className="text-[10px] font-black uppercase tracking-[0.15em] text-zinc-400 py-4">Sent By</TH>
+                                <TH className="text-[10px] font-black uppercase tracking-[0.15em] text-zinc-400 py-4">Office Sent To</TH>
+                                <TH className="text-[10px] font-black uppercase tracking-[0.15em] text-zinc-400 py-4">Taken By</TH>
+                                <TH className="text-[10px] font-black uppercase tracking-[0.15em] text-zinc-400 py-4">Status</TH>
+                                <TH className="text-[10px] font-black uppercase tracking-[0.15em] text-zinc-400 py-4">Created At</TH>
+                                <TH className="text-[10px] font-black uppercase tracking-[0.15em] text-zinc-400 py-4 text-right">Details</TH>
                             </TR>
                         </THead>
                         <TBody>
                             {activityLog.length === 0 ? (
                                 <TR>
-                                    <TD colSpan={5} className="text-center py-10 text-zinc-400 text-sm font-medium">
-                                        No activity recorded yet.
+                                    <TD colSpan={7} className="text-center py-20">
+                                        <div className="flex flex-col items-center gap-3">
+                                            <div className="h-12 w-12 rounded-full bg-zinc-50 flex items-center justify-center">
+                                                <History className="h-6 w-6 text-zinc-300" />
+                                            </div>
+                                            <p className="text-zinc-400 text-sm font-black uppercase tracking-widest">No activity recorded yet</p>
+                                        </div>
                                     </TD>
                                 </TR>
                             ) : activityLog.map((entry, i) => {
                                 const meta = getActionMeta(entry.action);
                                 const Icon = meta.Icon;
+                                const detailPath = `/admin/cheques/${entry.chequeId}`;
+
                                 return (
                                     <motion.tr
                                         key={entry.id}
                                         initial={{ opacity: 0, x: -8 }}
                                         animate={{ opacity: 1, x: 0 }}
-                                        transition={{ delay: i * 0.05 }}
-                                        className="hover:bg-indigo-50/20 transition-colors group"
+                                        transition={{ delay: i * 0.03 }}
+                                        className="hover:bg-zinc-50/50 transition-all group cursor-default"
                                     >
                                         <TD>
-                                            <span className="font-mono text-[11px] font-black text-indigo-600 bg-indigo-50 px-2 py-1 rounded-lg">
-                                                {entry.chequeNumber}
-                                            </span>
-                                        </TD>
-                                        <TD>
-                                            <span className={`inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider px-2.5 py-1.5 rounded-full ${meta.bg} ${meta.color}`}>
-                                                <Icon className="h-3 w-3" />
-                                                {meta.label}
-                                            </span>
-                                        </TD>
-                                        <TD>
-                                            <div className="flex items-center gap-2.5">
-                                                <div className="h-7 w-7 rounded-lg bg-gradient-to-br from-zinc-100 to-zinc-200 flex items-center justify-center text-zinc-600 font-black text-xs shrink-0">
-                                                    {entry.performedBy.charAt(0)}
-                                                </div>
-                                                <span className="font-bold text-zinc-900 text-sm">{entry.performedBy}</span>
-                                            </div>
-                                        </TD>
-                                        <TD>
-                                            <div className="flex flex-col gap-0.5">
-                                                <span className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">
-                                                    {entry.performedByRole.replace(/_/g, ' ')}
+                                            <div className="flex flex-col gap-1">
+                                                <span className="font-mono text-xs font-black text-indigo-600 bg-indigo-50/50 px-2 py-0.5 rounded-md border border-indigo-100/50 w-fit">
+                                                    {entry.chequeNumber}
                                                 </span>
-                                                {entry.office && entry.office !== 'DONE' && (
-                                                    <span className="text-[9px] font-bold text-indigo-400">{entry.office}</span>
-                                                )}
                                             </div>
                                         </TD>
                                         <TD>
-                                            <span className="text-xs text-zinc-400 font-medium">{formatDate(entry.timestamp)}</span>
+                                            <div className="flex flex-col">
+                                                <span className="text-xs font-black text-zinc-900 leading-none">{entry.sentBy}</span>
+                                                <span className="text-[9px] font-bold text-zinc-400 uppercase tracking-widest mt-0.5">{entry.sentByRole}</span>
+                                            </div>
+                                        </TD>
+                                        <TD>
+                                            <span className="text-[10px] font-black text-indigo-600 uppercase tracking-tighter bg-indigo-50 px-2.5 py-1 rounded-full border border-indigo-100/30">
+                                                {entry.officeSentTo}
+                                            </span>
+                                        </TD>
+                                        <TD>
+                                            <div className="flex items-center gap-2">
+                                                <div className="h-6 w-6 rounded-md bg-zinc-100 flex items-center justify-center text-[10px] font-black text-zinc-500 border border-zinc-200">
+                                                    {entry.takenBy.charAt(0)}
+                                                </div>
+                                                <span className="text-xs font-black text-zinc-700">{entry.takenBy}</span>
+                                            </div>
+                                        </TD>
+                                        <TD>
+                                            <span className={`inline-flex items-center gap-1 text-[9px] font-black px-2 py-0.5 rounded-full border uppercase tracking-tighter
+                                                ${entry.status === 'Completed' ? 'text-emerald-600 bg-emerald-50 border-emerald-100' : 
+                                                  entry.status === 'Verified' ? 'text-blue-600 bg-blue-50 border-blue-100' :
+                                                  entry.status === 'Returned' ? 'text-rose-600 bg-rose-50 border-rose-100' : 
+                                                  'text-amber-600 bg-amber-50 border-amber-100'}`}>
+                                                {entry.status === 'Verified' ? <CheckCircle2 className="h-2.5 w-2.5" /> : 
+                                                 entry.status === 'Pending' ? <Clock className="h-2.5 w-2.5" /> : null}
+                                                {entry.status}
+                                            </span>
+                                        </TD>
+                                        <TD>
+                                            <div className="flex flex-col">
+                                                <span className="text-[11px] text-zinc-900 font-bold whitespace-nowrap">
+                                                    {formatDate(entry.timestamp).split(', ')[0]}
+                                                </span>
+                                                <span className="text-[9px] text-zinc-400 font-black uppercase tracking-widest mt-0.5">
+                                                    {formatDate(entry.timestamp).split(', ')[1]}
+                                                </span>
+                                            </div>
+                                        </TD>
+                                        <TD className="text-right">
+                                            <Link href={detailPath}>
+                                                <Button variant="ghost" size="sm" className="h-8 w-8 p-0 rounded-full hover:bg-indigo-50 hover:text-indigo-600 transition-colors">
+                                                    <ArrowRightCircle className="h-4 w-4" />
+                                                </Button>
+                                            </Link>
                                         </TD>
                                     </motion.tr>
                                 );

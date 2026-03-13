@@ -4,11 +4,12 @@ import { Card, CardHeader } from "@/components/ui/Card";
 import { Table, THead, TBody, TH, TR, TD } from "@/components/ui/Table";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
-import { History, FileText, Download, ArrowLeft, Search } from "lucide-react";
+import { History, FileText, Download, ArrowLeft, Search, Eye } from "lucide-react";
 import { mockCheques } from "@/lib/mock-data";
 import { formatCurrency, formatDate } from "@/lib/helpers";
 import { useRouter } from "next/navigation";
 import { Input } from "@/components/ui/Input";
+import Link from "next/link";
 
 export default function UserHistory() {
     const router = useRouter();
@@ -60,8 +61,13 @@ export default function UserHistory() {
                                 <TD className="font-black text-indigo-700 text-lg">{formatCurrency(cheque.amount)}</TD>
                                 <TD className="text-zinc-500 font-bold">{formatDate(cheque.submittedAt)}</TD>
                                 <TD><Badge status={cheque.status} /></TD>
-                                <TD className="text-right">
-                                    <Button variant="ghost" size="sm" className="h-9 px-3 text-zinc-400 hover:text-indigo-600 hover:bg-indigo-50 font-black text-[10px] transition-all">
+                                <TD className="text-right flex items-center justify-end gap-2">
+                                    <Link href={`/user/cheques/${cheque.id}`}>
+                                        <Button variant="ghost" size="sm" className="h-9 px-3 text-indigo-600 hover:bg-indigo-50 font-black text-[10px] transition-all">
+                                            <Eye className="mr-2 h-4 w-4" /> View Details
+                                        </Button>
+                                    </Link>
+                                    <Button variant="ghost" size="sm" className="h-9 px-3 text-zinc-400 hover:text-zinc-600 hover:bg-zinc-50 font-black text-[10px] transition-all">
                                         <FileText className="mr-2 h-4 w-4" /> Receipt
                                     </Button>
                                 </TD>

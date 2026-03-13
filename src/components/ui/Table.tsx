@@ -10,17 +10,17 @@ export function Table({ children, className }: { children: React.ReactNode, clas
     )
 }
 
-export function THead({ children }: { children: React.ReactNode }) {
+export function THead({ children, className }: { children: React.ReactNode, className?: string }) {
     return (
-        <thead className="border-b border-zinc-200 bg-zinc-50/50">
+        <thead className={cn("border-b border-zinc-200 bg-zinc-50/50", className)}>
             {children}
         </thead>
     )
 }
 
-export function TBody({ children }: { children: React.ReactNode }) {
+export function TBody({ children, className }: { children: React.ReactNode, className?: string }) {
     return (
-        <tbody className="divide-y divide-zinc-200">
+        <tbody className={cn("divide-y divide-zinc-200", className)}>
             {children}
         </tbody>
     )
