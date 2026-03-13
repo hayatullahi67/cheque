@@ -104,47 +104,53 @@ export default function SubmitCheque() {
     return (
         <div className="max-w-4xl mx-auto py-8 px-4">
             {/* Header section remains common */}
-            <div className="flex items-center justify-between mb-12">
+            {/* Premium Responsive Header */}
+            <div className="flex items-center justify-between mb-8 sm:mb-12">
                 <Button 
                     variant="ghost" 
                     onClick={() => router.back()} 
-                    className="text-zinc-500 hover:text-zinc-900 font-bold text-xs bg-zinc-100/50 hover:bg-zinc-100 rounded-xl px-4 h-10"
+                    className="text-zinc-500 hover:text-zinc-900 font-bold text-[10px] sm:text-xs bg-zinc-100/50 hover:bg-zinc-100 rounded-xl px-3 sm:px-4 h-9 sm:h-10 transition-all active:scale-95"
                 >
-                    <ArrowLeft className="mr-2 h-4 w-4" /> Exit Session
+                    <ArrowLeft className="mr-1 sm:mr-2 h-3.5 w-3.5 sm:h-4 sm:w-4" /> 
+                    <span className="hidden xs:inline">Exit Session</span>
+                    <span className="xs:hidden">Exit</span>
                 </Button>
                 
-                <div className="flex items-center gap-2 px-3 py-1 bg-indigo-50 rounded-full border border-indigo-100/50">
-                    <ShieldCheck className="h-3.5 w-3.5 text-indigo-500" />
-                    <span className="text-[10px] font-bold text-indigo-600 uppercase tracking-widest leading-none">Secure Node</span>
+                <div className="flex items-center gap-2 px-2.5 sm:px-3 py-1 sm:py-1.5 bg-indigo-50/50 backdrop-blur-sm rounded-full border border-indigo-100/30">
+                    <div className="relative">
+                        <ShieldCheck className="h-3 sm:h-3.5 w-3 sm:w-3.5 text-indigo-500" />
+                        <span className="absolute -top-0.5 -right-0.5 h-1.5 w-1.5 bg-emerald-500 rounded-full border border-white animate-pulse" />
+                    </div>
+                    <span className="text-[8px] sm:text-[10px] font-black text-indigo-600 uppercase tracking-[0.15em] sm:tracking-widest leading-none">Secure Node</span>
                 </div>
             </div>
 
-            {/* Premium Tab Switcher */}
+            {/* Premium Tab Switcher - More Compact for Mobile */}
             {step !== 'success' && step !== 'scanning' && (
-                <div className="flex flex-col items-center mb-12">
-                    <div className="bg-zinc-100/50 p-1.5 rounded-2xl flex gap-1 border border-zinc-200/50">
+                <div className="flex flex-col items-center mb-10 sm:mb-16">
+                    <div className="w-[85%] max-w-[320px] sm:w-fit bg-zinc-100/40 backdrop-blur-md p-1 sm:p-1.5 rounded-2xl sm:rounded-2xl flex gap-1 border border-zinc-200/40 shadow-inner">
                         <button
                             onClick={() => setActiveTab('submit')}
                             className={cn(
-                                "flex items-center gap-2 px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all",
+                                "flex-1 sm:flex-none flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-8 py-2 sm:py-3 rounded-[0.9rem] sm:rounded-xl text-[9px] sm:text-xs font-black uppercase tracking-widest transition-all duration-300",
                                 activeTab === 'submit' 
-                                    ? "bg-white text-zinc-900 shadow-md ring-1 ring-zinc-200/20" 
+                                    ? "bg-white text-zinc-900 shadow-[0_4px_12px_rgba(0,0,0,0.05)] ring-1 ring-zinc-200/10" 
                                     : "text-zinc-400 hover:text-zinc-600"
                             )}
                         >
-                            <Scan className="h-4 w-4" />
+                            <Scan className="h-3 sm:h-4 w-3 sm:w-4" />
                             Digital Scan
                         </button>
                         <button
                             onClick={() => setActiveTab('box')}
                             className={cn(
-                                "flex items-center gap-2 px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all",
+                                "flex-1 sm:flex-none flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-8 py-2 sm:py-3 rounded-[0.9rem] sm:rounded-xl text-[9px] sm:text-xs font-black uppercase tracking-widest transition-all duration-300",
                                 activeTab === 'box' 
-                                    ? "bg-white text-zinc-900 shadow-md ring-1 ring-zinc-200/20" 
+                                    ? "bg-white text-zinc-900 shadow-[0_4px_12px_rgba(0,0,0,0.05)] ring-1 ring-zinc-200/10" 
                                     : "text-zinc-400 hover:text-zinc-600"
                             )}
                         >
-                            <Package className="h-4 w-4" />
+                            <Package className="h-3 sm:h-4 w-3 sm:w-4" />
                             Request Box
                         </button>
                     </div>
@@ -158,11 +164,11 @@ export default function SubmitCheque() {
                         initial={{ opacity: 0, y: 15 }}
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, scale: 0.98 }}
-                        className="space-y-10"
+                        className="space-y-8 sm:space-y-12"
                     >
-                        <div className="text-center space-y-3">
-                            <h1 className="text-4xl font-black text-zinc-900 tracking-tight">Register New Cheque</h1>
-                            <p className="text-zinc-500 font-medium text-sm max-w-sm mx-auto leading-relaxed">
+                        <div className="text-center space-y-3 sm:space-y-4 px-2">
+                            <h1 className="text-3xl sm:text-5xl font-black text-zinc-900 tracking-tight leading-[1.1]">Register New Cheque</h1>
+                            <p className="text-zinc-500 font-medium text-xs sm:text-sm max-w-[280px] sm:max-w-sm mx-auto leading-relaxed">
                                 Upload a clear image of your cheque for automated data extraction.
                             </p>
                         </div>
@@ -189,20 +195,18 @@ export default function SubmitCheque() {
                             </Card>
                         </div>
 
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-6 px-4">
-                            {[
-                                { icon: Fingerprint, title: "Biometric Audit", text: "Identity verification active" },
-                                { icon: Zap, title: "Neural Processing", text: "Instant data extraction" },
-                                { icon: ShieldCheck, title: "Bank Grade", text: "Tier-1 security protocols" }
-                            ].map((item, i) => (
-                                <div key={i} className="flex flex-col items-start p-6 rounded-2xl bg-white border border-zinc-100 shadow-sm">
-                                    <div className="h-10 w-10 rounded-xl bg-zinc-50 flex items-center justify-center mb-4 text-zinc-900 font-bold">
-                                        <item.icon className="h-5 w-5" />
-                                    </div>
-                                    <h4 className="text-xs font-bold text-zinc-900 uppercase tracking-wide mb-1">{item.title}</h4>
-                                    <p className="text-[11px] text-zinc-500 font-medium leading-relaxed">{item.text}</p>
+                        <div className="max-w-xl mx-auto px-4 pt-6">
+                            <div className="flex items-center gap-5 p-6 bg-indigo-50/50 rounded-[2rem] border border-indigo-100/50">
+                                <div className="h-12 w-12 rounded-2xl bg-indigo-600 flex items-center justify-center text-white shrink-0 shadow-lg shadow-indigo-200">
+                                    <Sparkles className="h-6 w-6" />
                                 </div>
-                            ))}
+                                <div className="space-y-1">
+                                    <h4 className="text-xs font-black text-indigo-950 uppercase tracking-widest leading-none mb-1">Neural Data Extraction</h4>
+                                    <p className="text-[11px] text-indigo-600 font-semibold leading-relaxed">
+                                        Our AI engine will automatically parse your uploaded cheque image to extract account details, amounts, and signatures for instant verification.
+                                    </p>
+                                </div>
+                            </div>
                         </div>
                     </motion.div>
                 )}
