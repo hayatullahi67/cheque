@@ -1,230 +1,278 @@
+
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import {
-    ShieldCheck, ArrowLeft, Stamp, CheckCircle2,
-    User, Calendar, Building2, Activity,
-    ExternalLink, Zap, Loader2, Cpu, Sparkles, Fingerprint
+    ArrowLeft, CheckCircle2, User, Building2, Calendar,
+    ShieldCheck, Wallet, Image as ImageIcon, X, Zap,
+    Activity, ArrowUpRight, Copy, FileText, Download, CheckCircle
 } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/Button";
-import { mockCheques } from "@/lib/mock-data";
-import { formatCurrency, formatDate } from "@/lib/helpers";
-import { motion } from "framer-motion";
-import Link from 'next/link';
-
-// ─── Info Card ────────────────────────────────────────────────────────────────
-import { Badge } from "@/components/ui/Badge";
-import { Card } from "@/components/ui/Card";
 import { cn } from "@/lib/helpers";
 
-// ─── Streamlined Info Card ───────────────────────────────────────────────────
-function InfoCard({ icon: Icon, label, value, sub, accent = false }: {
-    icon: any; label: string; value: string; sub?: string; accent?: boolean;
-}) {
+function StatCard({ label, value, icon: Icon, subValue }: { label: string; value: string; icon: any; subValue?: string }) {
     return (
-        <div className={cn(
-            "rounded-3xl p-6 border flex gap-4 items-start transition-all duration-300",
-            accent 
-                ? "bg-indigo-50/50 border-indigo-100/50 shadow-sm" 
-                : "bg-white border-zinc-100 hover:border-indigo-100 hover:shadow-md"
-        )}>
-            <div className={cn(
-                "h-10 w-10 shrink-0 rounded-2xl flex items-center justify-center transition-colors",
-                accent ? "bg-indigo-600 text-white" : "bg-zinc-50 text-zinc-400 group-hover:text-indigo-600"
-            )}>
-                <Icon className="h-5 w-5" />
-            </div>
-            <div className="min-w-0">
-                <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-[0.2em] mb-1.5">{label}</p>
-                <p className="text-sm font-black text-zinc-900 truncate tracking-tight">{value}</p>
-                {sub && <p className="text-[10px] text-zinc-500 font-medium mt-1 uppercase tracking-wide opacity-70">{sub}</p>}
+        <div className="p-5 rounded-2xl bg-white border border-zinc-200 shadow-sm hover:border-indigo-200 hover:shadow-md transition-all group">
+            <div className="flex items-start justify-between">
+                <div className="min-w-0 pr-4">
+                    <p className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-2">{label}</p>
+                    <p className="text-xl font-bold text-zinc-900 truncate">{value}</p>
+                    {subValue && <p className="text-sm font-medium text-zinc-500 mt-1 truncate">{subValue}</p>}
+                </div>
+                <div className="h-10 w-10 shrink-0 rounded-xl bg-indigo-50 flex items-center justify-center text-indigo-600 group-hover:bg-indigo-600 group-hover:text-white transition-colors">
+                    <Icon className="h-5 w-5" />
+                </div>
             </div>
         </div>
     );
 }
 
-// ─── Main Page ────────────────────────────────────────────────────────────────
 export default function UserChequeDetailsPage() {
     const router = useRouter();
     const { id } = useParams();
-    const cheque = useMemo(() => mockCheques.find(c => c.id === id), [id]);
+    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [copied, setCopied] = useState(false);
 
-    if (!cheque) return (
-        <div className="min-h-screen flex flex-col items-center justify-center bg-zinc-50 gap-4">
-            <Loader2 className="h-10 w-10 text-indigo-600 animate-spin" />
-            <p className="text-zinc-400 text-[10px] font-black uppercase tracking-[0.3em]">Querying Node...</p>
-        </div>
-    );
+    // Mocking the data logic
+    const cheque = useMemo(() => ({
+        id: id || 'CHQ-9921',
+        amount: 750000,
+        status: 'PROCESSING',
+        oidNumber: '000123456789',
+        bankBranch: 'Main Digital Node',
+        submittedAt: new Date(),
+        currentOffice: 'Branch Controller',
+        recipient: 'Alexander Wright',
+        accountNumber: '**** **** 4321',
+        type: 'Withdrawal'
+    }), [id]);
 
-    const isDone = cheque.status === 'PAID';
+    const isWithdrawal = cheque.amount > 100000;
+
+    const handleCopy = () => {
+        navigator.clipboard.writeText(cheque.oidNumber);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+    };
+
+    const timelineSteps = ['Queue', 'Verification', 'Branch Controller', 'Settlement'];
+    const currentStepIndex = timelineSteps.indexOf(cheque.currentOffice) !== -1 ? timelineSteps.indexOf(cheque.currentOffice) : 2;
 
     return (
-        <div className="min-h-screen bg-[#FDFDFF] pb-24">
-            {/* Minimal Header */}
-            <header className="sticky top-0 z-40 bg-white/80 backdrop-blur-xl border-b border-zinc-100/80 px-4 py-3 sm:py-4">
-                <div className="max-w-5xl mx-auto flex flex-row items-center justify-between gap-4">
-                    <div className="flex items-center gap-3 sm:gap-4 overflow-hidden">
-                        <Button
-                            variant="ghost"
+        <div className="min-h-screen bg-zinc-50 text-zinc-900 font-sans antialiased pb-20">
+            {/* Header */}
+            <header className="bg-white border-b border-zinc-200 sticky top-0 z-40 shadow-sm">
+                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                        <button
                             onClick={() => router.back()}
-                            className="h-9 w-9 sm:h-10 sm:w-10 rounded-xl bg-zinc-50 border border-zinc-100 text-zinc-500 hover:text-zinc-900 transition-all p-0 shrink-0"
+                            className="p-2.5 bg-white border border-zinc-200 hover:bg-zinc-50 rounded-xl transition-colors shadow-sm"
                         >
-                            <ArrowLeft className="h-4 w-4 sm:h-5 sm:w-5" />
-                        </Button>
-                        <div className="flex items-center gap-2 truncate">
-                            <span className="hidden xs:inline-block text-[9px] sm:text-[10px] font-black text-zinc-300 uppercase tracking-widest shrink-0">Tracking Record</span>
-                            <span className="hidden xs:inline-block h-1 w-1 rounded-full bg-zinc-200 shrink-0" />
-                            <span className="text-[9px] sm:text-[10px] font-black text-zinc-900 uppercase tracking-widest truncate">{cheque.chequeNumber}</span>
+                            <ArrowLeft className="h-5 w-5 text-zinc-600" />
+                        </button>
+                        <div>
+                            <div className="flex items-center gap-3">
+                                <h1 className="text-xl font-bold text-zinc-900 hidden sm:block">Cheque Details</h1>
+                                <span className="px-3 py-1 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-100 uppercase tracking-widest text-[10px] font-bold">
+                                    {cheque.status}
+                                </span>
+                            </div>
+                            <p className="text-sm font-medium text-zinc-500 mt-1">Ref: {cheque.id}</p>
                         </div>
                     </div>
-                    <div className="flex items-center gap-2 sm:gap-3 bg-indigo-50 px-3 sm:px-4 py-1 sm:py-1.5 rounded-full border border-indigo-100/50 shrink-0">
-                        <Activity className="h-2.5 w-2.5 sm:h-3 sm:w-3 text-indigo-500 animate-pulse" />
-                        <span className="text-[8px] sm:text-[9px] font-black text-indigo-600 uppercase tracking-[0.1em] sm:tracking-[0.2em] whitespace-nowrap">Audit Active</span>
-                    </div>
+                    {/* <div className="flex items-center gap-3">
+                        <Button variant="outline" className="hidden sm:flex bg-white gap-2 text-zinc-600 border-zinc-200 hover:bg-zinc-50">
+                            <Download className="h-4 w-4" /> Download Receipt
+                        </Button>
+                    </div> */}
                 </div>
             </header>
 
-            <main className="max-w-5xl mx-auto px-4 mt-6 sm:mt-8 space-y-6 sm:space-y-8">
-                {/* Master Record Card */}
-                <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                >
-                    <Card className="p-6 sm:p-10 border-none ring-1 ring-zinc-100 relative overflow-hidden group shadow-xl shadow-zinc-200/50">
-                        <div className="absolute top-0 right-0 p-8 sm:p-12 opacity-[0.03] group-hover:scale-110 transition-transform duration-1000 hidden sm:block">
-                            <Cpu className="h-48 sm:h-64 w-48 sm:w-64" />
-                        </div>
+            <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-8">
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
 
-                        <div className="relative z-10 flex flex-col md:flex-row md:items-end justify-between gap-8 sm:gap-10">
-                            <div className="space-y-4 sm:space-y-6">
-                                <div className="flex items-center gap-2 sm:gap-3">
-                                    <Badge status={cheque.status as any} />
-                                    <div className="h-1 w-1 rounded-full bg-zinc-200" />
-                                    <span className="text-[9px] sm:text-[10px] font-bold text-zinc-400 uppercase tracking-widest truncate">ID: {cheque.id}</span>
-                                </div>
-                                <h1 className="text-4xl sm:text-5xl md:text-6xl font-black text-zinc-900 tracking-tighter leading-none break-all">
-                                    {formatCurrency(cheque.amount)}
-                                </h1>
-                                <div className="flex flex-col xs:flex-row gap-4 xs:gap-8">
-                                    <div>
-                                        <p className="text-[9px] sm:text-[10px] font-bold text-zinc-400 uppercase tracking-widest mb-1 sm:mb-1.5">Asset Reference</p>
-                                        <p className="text-sm font-black text-indigo-600 tracking-tight font-mono">{cheque.chequeNumber}</p>
+                    {/* Left Column: Main Actions & Stats */}
+                    <div className="lg:col-span-8 space-y-8">
+                        {/* Amount Hero Card */}
+                        <div className="bg-gradient-to-br from-indigo-900 to-indigo-950 rounded-[2rem] p-8 sm:p-10 text-white shadow-xl relative overflow-hidden">
+                            {/* Decorative background elements */}
+                            <div className="absolute top-0 right-0 -mt-20 -mr-20 bg-white/5 h-80 w-80 rounded-full blur-3xl"></div>
+                            <div className="absolute bottom-0 left-0 -mb-20 -ml-20 bg-indigo-500/20 h-80 w-80 rounded-full blur-3xl pointer-events-none"></div>
+
+                            <div className="relative z-10 flex flex-col sm:flex-row sm:items-end justify-between gap-3">
+                                <div>
+                                    {/* <p className="text-indigo-200 font-semibold mb-2 uppercase tracking-wider text-sm">Requested Amount</p>
+                                    <div className="flex items-baseline gap-2">
+                                        <h2 className="text-3xl sm:text-5xl md:text-6xl font-black tracking-tight whitespace-nowrap">
+                                            ${cheque.amount.toLocaleString()}
+                                        </h2>
+                                        <span className="text-lg sm:text-xl text-indigo-300 font-bold uppercase">USD</span>
+                                    </div> */}
+                                    <div className="mt-8 flex items-center gap-3 sm:gap-6 flex-wrap">
+                                        <div className="flex items-center gap-2 bg-black/20 px-4 py-2 rounded-xl backdrop-blur-md border border-white/10">
+                                            <Activity className="h-4 w-4 text-emerald-400" />
+                                            <span className="text-sm font-medium text-indigo-100">Processing Active</span>
+                                        </div>
+                                        <div className="flex items-center gap-2 text-indigo-200 text-sm font-medium">
+                                            <Calendar className="h-4 w-4 opacity-70" />
+                                            {cheque.submittedAt.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
+                                        </div>
                                     </div>
-                                    <div className="hidden xs:block w-px h-10 bg-zinc-100" />
-                                    <div>
-                                        <p className="text-[9px] sm:text-[10px] font-bold text-zinc-400 uppercase tracking-widest mb-1 sm:mb-1.5">Designated Holder</p>
-                                        <p className="text-sm font-black text-zinc-900 tracking-tight truncate">{cheque.accountName}</p>
+                                </div>
+                                <div className="bg-white/10 p-4 sm:p-5 rounded-3xl backdrop-blur-md border border-white/20 w-full sm:w-auto min-w-[240px] shrink-0 mt-6 sm:mt-0 shadow-lg">
+                                    <p className="text-[10px] text-indigo-300 uppercase tracking-widest font-bold mb-2.5">OID Number</p>
+                                    <div className="flex items-center gap-2">
+                                        <p className="text-sm sm:text-base font-mono font-medium tracking-widest bg-black/20 px-4 py-2.5 rounded-2xl flex-1 text-center truncate border border-white/5 shadow-inner">
+                                            {cheque.oidNumber}
+                                        </p>
+                                        <button
+                                            onClick={handleCopy}
+                                            className="h-[44px] w-[44px] shrink-0 bg-indigo-500/20 hover:bg-indigo-500/40 rounded-2xl flex items-center justify-center transition-all border border-indigo-400/20 hover:scale-105"
+                                            title="Copy OID Number"
+                                        >
+                                            {copied ? <CheckCircle className="h-4 w-4 text-emerald-400" /> : <Copy className="h-4 w-4 text-indigo-200" />}
+                                        </button>
                                     </div>
                                 </div>
                             </div>
-
-                            <Card className="bg-zinc-900 p-6 sm:p-8 w-full md:w-72 border-none shadow-2xl space-y-3 sm:space-y-4">
-                                <div className="flex items-center justify-between">
-                                    <p className="text-[9px] sm:text-[10px] font-black text-zinc-500 uppercase tracking-widest">Verification stage</p>
-                                    <Sparkles className="h-3 w-3 text-indigo-400 animate-pulse" />
-                                </div>
-                                <h3 className="text-lg sm:text-xl font-black text-white">{isDone ? 'Asset Cleared' : 'In Review'}</h3>
-                                <div className="h-1.5 w-full bg-zinc-800 rounded-full overflow-hidden">
-                                    <motion.div
-                                        initial={{ width: 0 }}
-                                        animate={{ width: isDone ? '100%' : '65%' }}
-                                        transition={{ duration: 1.5, ease: 'circOut' }}
-                                        className="h-full bg-indigo-500 shadow-[0_0_15px_rgba(99,102,241,0.5)]"
-                                    />
-                                </div>
-                                <p className="text-[9px] sm:text-[10px] text-zinc-400 font-bold uppercase tracking-widest">Node: {cheque.currentOffice}</p>
-                            </Card>
-                        </div>
-                    </Card>
-                </motion.div>
-
-                {/* Secondary Intel */}
-                <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 sm:gap-8 items-start">
-                    <div className="lg:col-span-8 space-y-6 sm:space-y-8">
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            <InfoCard icon={User} label="Payer Identity" value={cheque.accountName} sub={`Record: ${cheque.accountNumber}`} />
-                            <InfoCard icon={Building2} label="Processing Branch" value={cheque.bankBranch} sub="Verified Node" accent />
-                            <InfoCard icon={Calendar} label="Timestamp" value={formatDate(cheque.submittedAt)} sub="Clock Synced" />
-                            <InfoCard icon={ShieldCheck} label="Encryption" value="AES-256 Active" sub="Tier-1 Security" accent />
                         </div>
 
-                        {/* Audit Pulse Timeline */}
-                        <Card className="p-6 sm:p-10 border-none ring-1 ring-zinc-100 shadow-sm relative overflow-hidden bg-white rounded-[2rem] sm:rounded-[2.5rem]">
-                            <div className="flex items-center gap-4 mb-8 sm:mb-10">
-                                <div className="h-9 w-9 sm:h-10 sm:w-10 bg-zinc-900 rounded-xl sm:rounded-2xl flex items-center justify-center text-white shrink-0">
-                                    <Stamp className="h-4 w-4 sm:h-5 sm:w-5" />
-                                </div>
-                                <div className="min-w-0">
-                                    <h3 className="text-xs sm:text-sm font-black text-zinc-900 uppercase tracking-tight truncate">Audit Trail</h3>
-                                    <p className="text-[9px] sm:text-[10px] text-zinc-400 font-bold uppercase tracking-widest truncate">Real-time status replication</p>
-                                </div>
+                        {/* Detailed Stats Grid */}
+                        <div>
+                            <h3 className="text-lg font-bold text-zinc-900 mb-4 px-1">Transaction Details</h3>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <StatCard icon={User} label="Requested By" value={cheque.recipient} subValue="Account Owner" />
+                                <StatCard icon={FileText} label="Transaction Type" value={cheque.type} subValue="Standard Processing" />
                             </div>
+                        </div>
 
-                            <div className="space-y-3 sm:space-y-4 relative">
-                                <div className="absolute left-6.5 sm:left-7 top-0 bottom-0 w-px bg-zinc-100" />
-                                {(['Customer', 'Customer Service', 'Branch Controller', 'Teller', 'DONE'] as const).map((office, idx) => {
-                                    const isCurrent = cheque.currentOffice === office;
-                                    const hasPassed = idx < (['Customer', 'Customer Service', 'Branch Controller', 'Teller', 'DONE'] as const).indexOf(cheque.currentOffice as any) || cheque.status === 'PAID';
-                                    const officeLabel = office === 'DONE' ? 'Payment released' : office;
+                        {/* Verification Path */}
+                        <div className="pt-4">
+                            <h3 className="text-lg font-bold text-zinc-900 mb-4 px-1">Verification Path</h3>
+                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                                {['Customer Service', 'Branch Controller', 'Teller', 'DONE'].map((step, i) => {
+                                    // Map the current step using the original offices logic
+                                    const offices = ['Customer', 'Customer Service', 'Branch Controller', 'Teller', 'DONE'];
+                                    const currentIdx = offices.indexOf(cheque.currentOffice) !== -1 ? offices.indexOf(cheque.currentOffice) : 2;
+                                    const stepOrigIdx = offices.indexOf(step);
+
+                                    const isPast = stepOrigIdx < currentIdx || cheque.status === 'PAID';
+                                    const isCurrent = stepOrigIdx === currentIdx && cheque.status !== 'PAID';
+
+                                    const stepLabel = step === 'DONE' ? 'Settlement' : step;
 
                                     return (
-                                        <div key={office} className={cn(
-                                            "relative flex items-center justify-between p-4 sm:p-5 rounded-xl sm:rounded-2xl transition-all duration-500",
-                                            isCurrent ? "bg-indigo-50/30 border border-indigo-100 shadow-sm translate-x-1" : "bg-transparent border border-transparent opacity-60"
+                                        <div key={step} className={cn(
+                                            "rounded-2xl p-4 border flex flex-col min-h-[110px] justify-between transition-all",
+                                            isCurrent ? "bg-indigo-50 border-indigo-200 shadow-sm" :
+                                                isPast ? "bg-white border-zinc-200" : "bg-zinc-50 border-zinc-200/50"
                                         )}>
-                                            <div className="flex items-center gap-4 sm:gap-5 min-w-0">
-                                                <div className={cn(
-                                                    "h-8 w-8 sm:h-10 sm:w-10 rounded-full flex items-center justify-center border-2 sm:border-4 border-white shadow-md z-10 transition-colors duration-500 shrink-0",
-                                                    hasPassed ? "bg-emerald-500 text-white" : isCurrent ? "bg-indigo-600 text-white" : "bg-zinc-100 text-zinc-300"
-                                                )}>
-                                                    <CheckCircle2 className={cn("h-3 w-3 sm:h-4 sm:w-4", !hasPassed && "opacity-0")} />
-                                                    {!hasPassed && <span className="text-[8px] sm:text-[10px] font-black">{idx + 1}</span>}
-                                                </div>
-                                                <div className="min-w-0">
-                                                    <p className={cn("text-[10px] sm:text-xs font-black uppercase tracking-tight truncate", isCurrent ? "text-zinc-900" : "text-zinc-400")}>{officeLabel}</p>
-                                                    <p className="text-[8px] sm:text-[9px] font-bold text-zinc-300 uppercase tracking-widest truncate">Node Authorization</p>
-                                                </div>
+                                            <div className={cn(
+                                                "h-7 w-7 rounded-full flex items-center justify-center shrink-0 mb-3",
+                                                isPast ? "bg-emerald-500 text-white" :
+                                                    isCurrent ? "bg-indigo-600 text-white" : "bg-zinc-100 text-zinc-400 border border-zinc-200/50"
+                                            )}>
+                                                {isPast ? <CheckCircle2 className="h-4 w-4" /> :
+                                                    isCurrent ? <div className="h-2 w-2 bg-white rounded-full animate-pulse" /> :
+                                                        <span className="text-[10px] font-bold">{i + 1}</span>}
                                             </div>
-                                            {isCurrent && (
-                                                <div className="flex items-center gap-1.5 sm:gap-2 text-indigo-600 shrink-0 ml-2">
-                                                    <span className="text-[8px] sm:text-[9px] font-black uppercase tracking-widest animate-pulse hidden xs:inline-block">Processing</span>
-                                                    <div className="h-1.5 w-1.5 rounded-full bg-indigo-600 animate-pulse xs:hidden" />
-                                                </div>
-                                            )}
+
+                                            <div>
+                                                <p className={cn(
+                                                    "text-xs font-bold uppercase tracking-wider leading-tight",
+                                                    isPast ? "text-zinc-900" : isCurrent ? "text-indigo-800" : "text-zinc-600"
+                                                )}>{stepLabel}</p>
+                                                <p className={cn(
+                                                    "text-[10px] font-bold mt-1 uppercase tracking-widest",
+                                                    isPast ? "text-emerald-600" : isCurrent ? "text-indigo-600" : "text-zinc-500"
+                                                )}>
+                                                    {isPast ? 'Verified' : isCurrent ? 'Processing' : 'Pending'}
+                                                </p>
+                                            </div>
                                         </div>
                                     );
                                 })}
                             </div>
-                        </Card>
+                        </div>
                     </div>
 
-                    <div className="lg:col-span-4 space-y-4 sm:space-y-6">
-                        <Card className="p-6 sm:p-8 border-none ring-1 ring-zinc-100 shadow-sm bg-zinc-900 text-white relative overflow-hidden group rounded-[2rem] sm:rounded-[2.5rem]">
-                            <div className="absolute top-0 right-0 p-6 sm:p-8 opacity-10 group-hover:rotate-12 transition-transform hidden sm:block">
-                                <Fingerprint className="h-24 sm:h-32 w-24 sm:w-32" />
-                            </div>
-                            <h4 className="text-[9px] sm:text-[10px] font-black text-indigo-400 uppercase tracking-[0.2em] sm:tracking-[0.3em] mb-3 sm:mb-4 font-mono">Support Core</h4>
-                            <h3 className="text-lg sm:text-xl font-black mb-2 tracking-tight">Need Intel?</h3>
-                            <p className="text-[10px] sm:text-[11px] text-zinc-400 font-medium leading-relaxed mb-6 sm:mb-8"> Our automated support node is available 24/7 if you notice any discrepancies in the audit trail.</p>
-                            <Button className="w-full h-12 sm:h-14 bg-white text-zinc-900 rounded-xl sm:rounded-2xl font-black text-[9px] sm:text-[10px] uppercase tracking-[0.2em] hover:bg-zinc-200 shadow-xl">
-                                Request Assistance
-                            </Button>
-                        </Card>
+                    {/* Right Column: Audit Trail & Proof */}
+                    <div className="lg:col-span-4 space-y-8">
 
-                        <div className="flex gap-3 sm:gap-4">
-                            <Card className="flex-1 p-5 sm:p-6 border-none ring-1 ring-zinc-100 shadow-sm flex flex-col items-center justify-center text-center group cursor-pointer hover:ring-indigo-100 transition-all">
-                                <ExternalLink className="h-5 w-5 sm:h-6 sm:w-6 text-zinc-300 group-hover:text-indigo-600 transition-colors mb-2 sm:mb-3" />
-                                <span className="text-[8px] sm:text-[9px] font-black text-zinc-400 uppercase tracking-widest">Export Path</span>
-                            </Card>
-                            <Card className="flex-1 p-5 sm:p-6 border-none ring-1 ring-zinc-100 shadow-sm flex flex-col items-center justify-center text-center group cursor-pointer hover:ring-emerald-100 transition-all">
-                                <CheckCircle2 className="h-5 w-5 sm:h-6 sm:w-6 text-zinc-300 group-hover:text-emerald-600 transition-colors mb-2 sm:mb-3" />
-                                <span className="text-[8px] sm:text-[9px] font-black text-zinc-400 uppercase tracking-widest">Verify Seal</span>
-                            </Card>
-                        </div>
+
+                        {/* Document Proof Section */}
+                        {isWithdrawal && (
+                            <div className="bg-white rounded-[2rem] p-6 sm:p-8 border border-zinc-200 shadow-sm text-center flex flex-col items-center group">
+                                <div className="mx-auto h-12 w-12 rounded-2xl bg-zinc-50 group-hover:bg-indigo-50 border border-zinc-200 group-hover:border-indigo-100 flex items-center justify-center mb-4 transition-colors">
+                                    <ImageIcon className="h-6 w-6 text-zinc-500 group-hover:text-indigo-600 transition-colors" />
+                                </div>
+                                <h4 className="text-lg font-bold text-zinc-900 mb-1">Digital Asset Proof</h4>
+                                <p className="text-sm font-medium text-zinc-500 mb-6">Verified scan of physical instrument</p>
+
+                                <div className="w-full relative rounded-2xl overflow-hidden border border-zinc-200 mb-6 cursor-pointer" onClick={() => setIsModalOpen(true)}>
+                                    <div className="aspect-[4/3] bg-zinc-100 w-full relative">
+                                        <img
+                                            src="https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?w=800&q=80"
+                                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
+                                            alt="Cheque Proof"
+                                        />
+                                        <div className="absolute inset-0 bg-zinc-900/0 opacity-0 group-hover:opacity-100 group-hover:bg-zinc-900/30 transition-all duration-300 flex items-center justify-center backdrop-blur-[2px]">
+                                            <ArrowUpRight className="h-8 w-8 text-white drop-shadow-lg" />
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <Button
+                                    className="w-full bg-zinc-900 hover:bg-zinc-800 text-white rounded-xl py-6 font-bold shadow-lg shadow-zinc-200"
+                                    onClick={() => setIsModalOpen(true)}
+                                >
+                                    Inspect Document
+                                </Button>
+                            </div>
+                        )}
+
                     </div>
                 </div>
             </main>
+
+            {/* Document Inspection Modal */}
+            <AnimatePresence>
+                {isModalOpen && (
+                    <motion.div
+                        initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                        className="fixed inset-0 z-[60] flex items-center justify-center p-4 sm:p-8 bg-zinc-900/80 backdrop-blur-xl"
+                        onClick={() => setIsModalOpen(false)}
+                    >
+                        <motion.div
+                            initial={{ scale: 0.95, opacity: 0, y: 20 }}
+                            animate={{ scale: 1, opacity: 1, y: 0 }}
+                            exit={{ scale: 0.95, opacity: 0, y: 20 }}
+                            className="bg-zinc-50 rounded-[2rem] p-2 max-w-5xl w-full relative shadow-2xl overflow-hidden"
+                            onClick={e => e.stopPropagation()}
+                        >
+                            <div className="absolute top-6 left-6 z-10 bg-white/90 backdrop-blur-md px-4 py-2.5 rounded-xl text-sm font-bold text-zinc-900 shadow-sm border border-zinc-200 flex items-center gap-2">
+                                <ShieldCheck className="h-4 w-4 text-emerald-500" />
+                                Verified Original
+                            </div>
+                            <button
+                                onClick={() => setIsModalOpen(false)}
+                                className="absolute top-6 right-6 z-10 h-11 w-11 bg-white/90 hover:bg-white backdrop-blur-md rounded-full flex items-center justify-center shadow-lg border border-zinc-200 text-zinc-600 transition-colors"
+                            >
+                                <X className="h-5 w-5" />
+                            </button>
+                            <div className="p-4 sm:p-10 flex min-h-[50vh] items-center justify-center bg-zinc-200/50 rounded-[1.5rem] border border-zinc-200/50">
+                                <img
+                                    src="https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?w=1600&q=80"
+                                    className="w-full max-h-[75vh] object-contain shadow-2xl rounded-xl"
+                                    alt="High Resolution Cheque Document"
+                                />
+                            </div>
+                        </motion.div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
         </div>
     );
 }

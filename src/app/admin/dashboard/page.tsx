@@ -26,6 +26,7 @@ interface ActivityEntry {
     sentByRole: string;
     officeSentTo: string;
     takenBy: string;
+    operationType: string;
     status: 'Pending' | 'Verified' | 'Completed' | 'Returned';
     timestamp: string;
 }
@@ -81,6 +82,7 @@ function buildActivityLog(): ActivityEntry[] {
                 sentByRole: sentByRole,
                 officeSentTo: getNextOffice(log.action),
                 takenBy: log.performedBy,
+                operationType: cheque.requestType === 'WITHDRAWAL' ? 'Withdrawal' : (cheque.requestType === 'DEPOSIT' ? 'Cash Deposit' : 'Box Request'),
                 status: log.action === 'PAID' ? 'Completed' : (log.action.includes('RETURNED') ? 'Returned' : 'Verified'),
                 timestamp: log.timestamp,
             });
@@ -99,6 +101,7 @@ function buildActivityLog(): ActivityEntry[] {
                 sentByRole: lastLog ? lastLog.performedByRole.replace(/_/g, ' ') : 'Customer',
                 officeSentTo: cheque.currentOffice,
                 takenBy: 'Not Taken',
+                operationType: cheque.requestType === 'WITHDRAWAL' ? 'Withdrawal' : (cheque.requestType === 'DEPOSIT' ? 'Cash Deposit' : 'Box Request'),
                 status: 'Pending',
                 timestamp: new Date().toISOString(), // Current state
             });
@@ -239,6 +242,7 @@ export default function AdminDashboard() {
                         
                             <TR className="hover:bg-transparent border-none">
                                 <TH className="text-[10px] font-black uppercase tracking-[0.15em] text-zinc-400 py-4">Cheque Ref</TH>
+                                <TH className="text-[10px] font-black uppercase tracking-[0.15em] text-zinc-400 py-4">Op. Type</TH>
                                 <TH className="text-[10px] font-black uppercase tracking-[0.15em] text-zinc-400 py-4">Sent By</TH>
                                 <TH className="text-[10px] font-black uppercase tracking-[0.15em] text-zinc-400 py-4">Office Sent To</TH>
                                 <TH className="text-[10px] font-black uppercase tracking-[0.15em] text-zinc-400 py-4">Taken By</TH>
@@ -277,6 +281,12 @@ export default function AdminDashboard() {
                                                 <span className="font-mono text-xs font-black text-indigo-600 bg-indigo-50/50 px-2 py-0.5 rounded-md border border-indigo-100/50 w-fit">
                                                     {entry.chequeNumber}
                                                 </span>
+                                            </div>
+                                        </TD>
+                                        <TD>
+                                            <div className="flex items-center gap-2">
+                                                <div className="h-1.5 w-1.5 rounded-full bg-indigo-500" />
+                                                <span className="font-bold text-zinc-900 text-[10px] whitespace-nowrap">{entry.operationType}</span>
                                             </div>
                                         </TD>
                                         <TD>

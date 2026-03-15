@@ -4,9 +4,9 @@ import { Card, CardHeader } from "@/components/ui/Card";
 import { Table, THead, TBody, TH, TR, TD } from "@/components/ui/Table";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
-import { History, FileText, Download, ArrowLeft, Search, Eye } from "lucide-react";
+import { History, FileText, Download, ArrowLeft, Search, Eye, CheckCircle2, Activity } from "lucide-react";
 import { mockCheques } from "@/lib/mock-data";
-import { formatCurrency, formatDate } from "@/lib/helpers";
+import { formatCurrency, formatDate, cn } from "@/lib/helpers";
 import { useRouter } from "next/navigation";
 import { Input } from "@/components/ui/Input";
 import Link from "next/link";
@@ -19,14 +19,14 @@ export default function UserHistory() {
         <div className="space-y-6 sm:space-y-10 animate-in pb-12">
             {/* Nav & Action Heading - Responsive Stacking */}
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 px-2">
-                <Button 
-                    variant="ghost" 
-                    onClick={() => router.back()} 
+                <Button
+                    variant="ghost"
+                    onClick={() => router.back()}
                     className="w-fit text-zinc-400 hover:text-zinc-900 font-black text-[10px] p-0 h-auto"
                 >
                     <ArrowLeft className="mr-2 h-4 w-4" /> Return to Dashboard
                 </Button>
-                
+
                 <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
                     <div className="relative group w-full sm:w-64">
                         <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400 group-focus-within:text-indigo-600 transition-colors" />
@@ -36,6 +36,26 @@ export default function UserHistory() {
                         <Download className="mr-2 h-4 w-4" /> Export ALL
                     </Button>
                 </div>
+            </div>
+
+            {/* Redesigned Stats Overview */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+                {[
+                    { label: "Total Volume", value: myCheques.length, sub: "Requests processed", icon: History, color: "text-blue-600", bg: "bg-blue-50" },
+                    { label: "Total Settled", value: formatCurrency(myCheques.filter(c => c.status === 'PAID').reduce((t, c) => t + c.amount, 0)), sub: "Successfully paid", icon: CheckCircle2, color: "text-emerald-600", bg: "bg-emerald-50" },
+                    { label: "Pending Value", value: formatCurrency(myCheques.filter(c => c.status !== 'PAID').reduce((t, c) => t + c.amount, 0)), sub: "Awaiting release", icon: Activity, color: "text-amber-600", bg: "bg-amber-50" }
+                ].map((stat, i) => (
+                    <div key={i} className="bg-white p-6 rounded-3xl border border-zinc-100 shadow-sm hover:shadow-md transition-all flex items-start gap-4">
+                        <div className={cn("h-10 w-10 shrink-0 rounded-2xl flex items-center justify-center", stat.bg, stat.color)}>
+                            <stat.icon className="h-5 w-5" />
+                        </div>
+                        <div>
+                            <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest mb-1">{stat.label}</p>
+                            <p className="text-xl font-black text-zinc-900 tracking-tight">{stat.value}</p>
+                            <p className="text-[10px] text-zinc-400 font-medium uppercase tracking-wider mt-1 opacity-70">{stat.sub}</p>
+                        </div>
+                    </div>
+                ))}
             </div>
 
             <Card className="border-transparent shadow-premium overflow-hidden">
@@ -56,38 +76,44 @@ export default function UserHistory() {
                     <Table>
                         <THead>
                             <TR>
-                                <TH>Cheque Reference</TH>
-                                <TH>Account Beneficiary</TH>
-                                <TH>Amount (₦)</TH>
+                                <TH>Request Ref</TH>
+                                <TH>Operation Type</TH>
                                 <TH>Process Date</TH>
                                 <TH>Final Status</TH>
                                 <TH className="text-right">Documents</TH>
                             </TR>
                         </THead>
                         <TBody>
-                            {myCheques.map((cheque) => (
-                                <TR key={cheque.id} className="hover:bg-zinc-50/50 transition-colors">
-                                    <TD className="font-mono font-black text-zinc-400">{cheque.chequeNumber}</TD>
-                                    <TD className="font-bold text-zinc-900">{cheque.accountName}</TD>
-                                    <TD className="font-black text-indigo-700 text-lg">{formatCurrency(cheque.amount)}</TD>
-                                    <TD className="text-zinc-500 font-bold">{formatDate(cheque.submittedAt)}</TD>
-                                    <TD><Badge status={cheque.status} /></TD>
-                                    <TD className="text-right flex items-center justify-end gap-2">
-                                        <Link href={`/user/cheques/${cheque.id}`}>
-                                            <Button variant="ghost" size="sm" className="h-9 px-3 text-indigo-600 hover:bg-indigo-50 font-black text-[10px] transition-all">
-                                                <Eye className="mr-2 h-4 w-4" /> View Details
+                            {myCheques.map((cheque) => {
+                                const opType = cheque.requestType === 'WITHDRAWAL' ? 'Withdrawal' : (cheque.requestType === 'DEPOSIT' ? 'Cash Deposit' : 'Box Request');
+                                return (
+                                    <TR key={cheque.id} className="hover:bg-zinc-50/50 transition-colors">
+                                        <TD className="font-mono font-black text-zinc-400">{cheque.chequeNumber}</TD>
+                                        <TD>
+                                            <div className="flex items-center gap-2">
+                                                <div className="h-1.5 w-1.5 rounded-full bg-indigo-500" />
+                                                <span className="font-bold text-zinc-900">{opType}</span>
+                                            </div>
+                                        </TD>
+                                        <TD className="text-zinc-500 font-bold">{formatDate(cheque.submittedAt)}</TD>
+                                        <TD><Badge status={cheque.status} /></TD>
+                                        <TD className="text-right flex items-center justify-end gap-2">
+                                            <Link href={`/user/cheques/${cheque.id}`}>
+                                                <Button variant="ghost" size="sm" className="h-9 px-3 text-indigo-600 hover:bg-indigo-50 font-black text-[10px] transition-all">
+                                                    <Eye className="mr-2 h-4 w-4" /> View Details
+                                                </Button>
+                                            </Link>
+                                            <Button variant="ghost" size="sm" className="h-9 px-3 text-zinc-400 hover:text-zinc-600 hover:bg-zinc-50 font-black text-[10px] transition-all">
+                                                <FileText className="mr-2 h-4 w-4" /> Receipt
                                             </Button>
-                                        </Link>
-                                        <Button variant="ghost" size="sm" className="h-9 px-3 text-zinc-400 hover:text-zinc-600 hover:bg-zinc-50 font-black text-[10px] transition-all">
-                                            <FileText className="mr-2 h-4 w-4" /> Receipt
-                                        </Button>
-                                    </TD>
-                                </TR>
-                            ))}
+                                        </TD>
+                                    </TR>
+                                );
+                            })}
                         </TBody>
                     </Table>
                 </div>
-                
+
                 {myCheques.length === 0 && (
                     <div className="py-32 text-center bg-zinc-50/30">
                         <div className="h-20 w-20 bg-zinc-100 rounded-[2rem] flex items-center justify-center mx-auto mb-6 text-zinc-300 shadow-inner">
@@ -98,19 +124,7 @@ export default function UserHistory() {
                 )}
             </Card>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 px-2">
-                {[
-                    { label: "Total Volume", value: myCheques.length, sub: "Requests processed" },
-                    { label: "Total Settled", value: formatCurrency(myCheques.filter(c => c.status === 'PAID').reduce((t, c) => t + c.amount, 0)), sub: "Successfully paid" },
-                    { label: "Pending Value", value: formatCurrency(myCheques.filter(c => c.status !== 'PAID').reduce((t, c) => t + c.amount, 0)), sub: "Awaiting final release" }
-                ].map((stat, i) => (
-                    <div key={i} className="space-y-1">
-                        <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">{stat.label}</p>
-                        <p className="text-xl font-black text-zinc-900 tracking-tighter">{stat.value}</p>
-                        <p className="text-[10px] text-zinc-400 font-bold uppercase tracking-widest opacity-60 underline decoration-indigo-200 underline-offset-4">{stat.sub}</p>
-                    </div>
-                ))}
-            </div>
+
         </div>
     );
 }

@@ -1,57 +1,40 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { 
-    CheckCircle2, 
-    ArrowRight, 
-    ArrowLeft, 
-    FileText, 
-    Landmark, 
-    Upload, 
-    Scan, 
-    Loader2, 
-    Fingerprint,
-    ShieldCheck,
-    AlertCircle,
-    X,
-    Sparkles,
-    Cpu,
-    Zap,
-    Package,
-    BookOpen,
-    Image as ImageIcon
+    CheckCircle2, ArrowRight, ArrowLeft, Upload, 
+    ShieldCheck, Plus, Trash2, Building, ScanLine, Wallet, Package, ArrowDownToLine, ArrowUpFromLine
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from '@/lib/helpers';
 
-export default function SubmitCheque() {
+type RequestType = 'withdrawal' | 'deposit' | 'box' | null;
+
+export default function SubmitRequest() {
     const router = useRouter();
     const fileInputRef = useRef<HTMLInputElement>(null);
     
-    // States
-    const [activeTab, setActiveTab] = useState<'submit' | 'box'>('submit');
-    const [step, setStep] = useState<'form' | 'scanning' | 'details' | 'success'>('form');
+    // Core States
+    const [requestType, setRequestType] = useState<RequestType>(null);
+    const [step, setStep] = useState<'selection' | 'form' | 'success'>('selection');
     const [isLoading, setIsLoading] = useState(false);
+    
+    // Form States
     const [attachedImage, setAttachedImage] = useState<string | null>(null);
-    const [formData, setFormData] = useState({
-        accountName: '',
-        accountNumber: '',
-        chequeNumber: '',
-        amount: '',
-        phoneNumber: '',
-        branch: 'Lagos Main Branch'
-    });
-
-    const [boxRequest, setBoxRequest] = useState({
-        bookType: 'Standard Savings',
-        leafCount: '25 Leaves',
-        deliveryMethod: 'Pickup',
-        branch: 'Lagos Main Branch'
-    });
+    const [oidNumber, setOidNumber] = useState('');
+    
+    // Deposit States
+    const [totalBoxes, setTotalBoxes] = useState('');
+    const [totalAmount, setTotalAmount] = useState('');
+    const [denominations, setDenominations] = useState([{ id: 1, denomination: '', pieces: '', amount: 0 }]);
+    
+    // Box States
+    const [boxAction, setBoxAction] = useState<'request' | 'return' | null>(null);
+    const [numberOfBoxes, setNumberOfBoxes] = useState('');
 
     const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
@@ -59,380 +42,404 @@ export default function SubmitCheque() {
             const reader = new FileReader();
             reader.onload = (event) => {
                 setAttachedImage(event.target?.result as string);
-                startScanning();
             };
             reader.readAsDataURL(file);
         }
     };
 
-    const startScanning = () => {
-        setStep('scanning');
-        
-        setTimeout(() => {
-            const mockExtractedData = {
-                accountName: 'ADEWALE OLUWASEUN',
-                accountNumber: Math.floor(1000000000 + Math.random() * 9000000000).toString(),
-                chequeNumber: `CHQ-${Math.floor(100000 + Math.random() * 900000)}`,
-                amount: (Math.floor(Math.random() * 50) * 10000 + 50000).toString(),
-                phoneNumber: '+234 812 345 6789',
-                branch: 'Lagos Main Branch'
-            };
-            
-            setFormData(mockExtractedData);
-            setStep('details');
-        }, 4000);
+    const addDenomination = () => {
+        setDenominations([...denominations, { id: Date.now(), denomination: '', pieces: '', amount: 0 }]);
     };
+
+    const removeDenomination = (id: number) => {
+        if (denominations.length > 1) {
+            setDenominations(denominations.filter(d => d.id !== id));
+        }
+    };
+
+    const updateDenomination = (id: number, field: string, value: string) => {
+        setDenominations(denominations.map(d => {
+            if (d.id === id) {
+                const updated = { ...d, [field]: value };
+                if (field === 'denomination' || field === 'pieces') {
+                    const denomValue = parseFloat(updated.denomination) || 0;
+                    const piecesValue = parseFloat(updated.pieces) || 0;
+                    updated.amount = denomValue * piecesValue;
+                }
+                return updated;
+            }
+            return d;
+        }));
+    };
+
+    const totalCalculatedAmount = useMemo(() => {
+        return denominations.reduce((sum, d) => sum + d.amount, 0);
+    }, [denominations]);
+
+    const isValidDeposit = totalCalculatedAmount === (parseFloat(totalAmount) || 0);
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        setIsLoading(true);
+        
+        if (requestType === 'deposit' && !isValidDeposit) {
+            return;
+        }
 
+        setIsLoading(true);
         setTimeout(() => {
             setIsLoading(false);
             setStep('success');
             setTimeout(() => {
-                router.push('/user/dashboard');
+                router.push('/user/dashboard'); // Or history
             }, 3000);
         }, 2000);
     };
 
-    const resetUpload = () => {
+    const resetFlow = () => {
+        setRequestType(null);
+        setStep('selection');
         setAttachedImage(null);
-        setStep('form');
+        setTotalBoxes('');
+        setTotalAmount('');
+        setDenominations([{ id: 1, denomination: '', pieces: '', amount: 0 }]);
+        setBoxAction(null);
+        setNumberOfBoxes('');
+        setOidNumber('');
     };
 
     return (
-        <div className="max-w-4xl mx-auto py-8 px-4">
-            {/* Header section remains common */}
-            {/* Premium Responsive Header */}
+        <div className="max-w-4xl mx-auto py-8 px-4 font-sans">
+            {/* DMB Header */}
             <div className="flex items-center justify-between mb-8 sm:mb-12">
                 <Button 
                     variant="ghost" 
-                    onClick={() => router.back()} 
+                    onClick={() => step === 'selection' ? router.back() : resetFlow()} 
                     className="text-zinc-500 hover:text-zinc-900 font-bold text-[10px] sm:text-xs bg-zinc-100/50 hover:bg-zinc-100 rounded-xl px-3 sm:px-4 h-9 sm:h-10 transition-all active:scale-95"
                 >
                     <ArrowLeft className="mr-1 sm:mr-2 h-3.5 w-3.5 sm:h-4 sm:w-4" /> 
-                    <span className="hidden xs:inline">Exit Session</span>
-                    <span className="xs:hidden">Exit</span>
+                    <span className="hidden xs:inline">{step === 'selection' ? 'Exit Session' : 'Back to Selection'}</span>
+                    <span className="xs:hidden">Back</span>
                 </Button>
                 
-                <div className="flex items-center gap-2 px-2.5 sm:px-3 py-1 sm:py-1.5 bg-indigo-50/50 backdrop-blur-sm rounded-full border border-indigo-100/30">
-                    <div className="relative">
-                        <ShieldCheck className="h-3 sm:h-3.5 w-3 sm:w-3.5 text-indigo-500" />
-                        <span className="absolute -top-0.5 -right-0.5 h-1.5 w-1.5 bg-emerald-500 rounded-full border border-white animate-pulse" />
-                    </div>
-                    <span className="text-[8px] sm:text-[10px] font-black text-indigo-600 uppercase tracking-[0.15em] sm:tracking-widest leading-none">Secure Node</span>
+                <div className="flex items-center gap-2 px-3 sm:px-4 py-1.5 sm:py-2 bg-indigo-50/50 backdrop-blur-sm rounded-full border border-indigo-100/30 shadow-sm">
+                    <Building className="h-3 sm:h-3.5 w-3 sm:w-3.5 text-indigo-500" />
+                    <span className="text-[9px] sm:text-[10px] font-black text-indigo-700 uppercase tracking-widest leading-none">DMB Operations</span>
                 </div>
             </div>
 
-            {/* Premium Tab Switcher - More Compact for Mobile */}
-            {step !== 'success' && step !== 'scanning' && (
-                <div className="flex flex-col items-center mb-10 sm:mb-16">
-                    <div className="w-[85%] max-w-[320px] sm:w-fit bg-zinc-100/40 backdrop-blur-md p-1 sm:p-1.5 rounded-2xl sm:rounded-2xl flex gap-1 border border-zinc-200/40 shadow-inner">
-                        <button
-                            onClick={() => setActiveTab('submit')}
-                            className={cn(
-                                "flex-1 sm:flex-none flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-8 py-2 sm:py-3 rounded-[0.9rem] sm:rounded-xl text-[9px] sm:text-xs font-black uppercase tracking-widest transition-all duration-300",
-                                activeTab === 'submit' 
-                                    ? "bg-white text-zinc-900 shadow-[0_4px_12px_rgba(0,0,0,0.05)] ring-1 ring-zinc-200/10" 
-                                    : "text-zinc-400 hover:text-zinc-600"
-                            )}
-                        >
-                            <Scan className="h-3 sm:h-4 w-3 sm:w-4" />
-                            Digital Scan
-                        </button>
-                        <button
-                            onClick={() => setActiveTab('box')}
-                            className={cn(
-                                "flex-1 sm:flex-none flex items-center justify-center gap-1.5 sm:gap-2 px-3 sm:px-8 py-2 sm:py-3 rounded-[0.9rem] sm:rounded-xl text-[9px] sm:text-xs font-black uppercase tracking-widest transition-all duration-300",
-                                activeTab === 'box' 
-                                    ? "bg-white text-zinc-900 shadow-[0_4px_12px_rgba(0,0,0,0.05)] ring-1 ring-zinc-200/10" 
-                                    : "text-zinc-400 hover:text-zinc-600"
-                            )}
-                        >
-                            <Package className="h-3 sm:h-4 w-3 sm:w-4" />
-                            Request Box
-                        </button>
-                    </div>
-                </div>
-            )}
-
             <AnimatePresence mode="wait">
-                {step === 'form' && activeTab === 'submit' && (
+                {step === 'selection' && (
                     <motion.div
-                        key="submit-form"
+                        key="selection"
                         initial={{ opacity: 0, y: 15 }}
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, scale: 0.98 }}
                         className="space-y-8 sm:space-y-12"
                     >
                         <div className="text-center space-y-3 sm:space-y-4 px-2">
-                            <h1 className="text-3xl sm:text-5xl font-black text-zinc-900 tracking-tight leading-[1.1]">Register New Cheque</h1>
-                            <p className="text-zinc-500 font-medium text-xs sm:text-sm max-w-[280px] sm:max-w-sm mx-auto leading-relaxed">
-                                Upload a clear image of your cheque for automated data extraction.
+                            <h1 className="text-3xl sm:text-5xl font-black text-zinc-900 tracking-tight leading-[1.1]">New DMB Request</h1>
+                            <p className="text-zinc-500 font-medium text-xs sm:text-sm max-w-[320px] sm:max-w-md mx-auto leading-relaxed">
+                                Select the type of operation you want to perform for your commercial banking node.
                             </p>
                         </div>
 
-                        <div className="max-w-xl mx-auto">
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-4xl mx-auto">
+                            {/* Withdrawal Card */}
                             <Card 
-                                onClick={() => fileInputRef.current?.click()}
-                                className="p-12 border-2 border-dashed border-zinc-200 bg-zinc-50/10 hover:bg-white hover:border-indigo-400 hover:shadow-xl hover:shadow-indigo-500/5 transition-all duration-500 rounded-[2.5rem] flex flex-col items-center justify-center cursor-pointer group"
+                                onClick={() => { setRequestType('withdrawal'); setStep('form'); }}
+                                className="group p-8 border-2 border-transparent bg-white hover:border-indigo-500 shadow-xl shadow-zinc-200/40 rounded-[2.5rem] cursor-pointer transition-all duration-500 flex flex-col items-center text-center space-y-4 hover:-translate-y-2 relative overflow-hidden"
                             >
-                                <input 
-                                    type="file" 
-                                    ref={fileInputRef} 
-                                    onChange={handleFileUpload} 
-                                    accept="image/*" 
-                                    className="hidden" 
-                                />
-                                
-                                <div className="h-20 w-20 bg-white rounded-3xl shadow-sm border border-zinc-100 flex items-center justify-center text-zinc-400 group-hover:text-indigo-600 group-hover:scale-110 transition-all duration-500 mb-6">
-                                    <Upload className="h-8 w-8" />
+                                <div className="absolute top-0 right-0 p-6 opacity-5 group-hover:scale-110 transition-transform">
+                                    <ScanLine className="h-24 w-24" />
                                 </div>
-                                
-                                <h3 className="text-xl font-bold text-zinc-900 mb-1">Click to Upload</h3>
-                                <p className="text-xs font-semibold text-zinc-400">or simply drag and drop here</p>
+                                <div className="h-16 w-16 bg-indigo-50 text-indigo-600 rounded-3xl flex items-center justify-center group-hover:bg-indigo-600 group-hover:text-white transition-colors duration-500 shadow-inner">
+                                    <Wallet className="h-8 w-8" />
+                                </div>
+                                <div>
+                                    <h3 className="text-xl font-black text-zinc-900 mb-2">Withdrawal</h3>
+                                    <p className="text-xs text-zinc-500 font-medium">Process cheque withdrawal with OID reference.</p>
+                                </div>
                             </Card>
-                        </div>
 
-                        <div className="max-w-xl mx-auto px-4 pt-6">
-                            <div className="flex items-center gap-5 p-6 bg-indigo-50/50 rounded-[2rem] border border-indigo-100/50">
-                                <div className="h-12 w-12 rounded-2xl bg-indigo-600 flex items-center justify-center text-white shrink-0 shadow-lg shadow-indigo-200">
-                                    <Sparkles className="h-6 w-6" />
+                            {/* Deposit Card */}
+                            <Card 
+                                onClick={() => { setRequestType('deposit'); setStep('form'); }}
+                                className="group p-8 border-2 border-transparent bg-white hover:border-indigo-500 shadow-xl shadow-zinc-200/40 rounded-[2.5rem] cursor-pointer transition-all duration-500 flex flex-col items-center text-center space-y-4 hover:-translate-y-2 relative overflow-hidden"
+                            >
+                                <div className="absolute top-0 right-0 p-6 opacity-5 group-hover:scale-110 transition-transform">
+                                    <ArrowDownToLine className="h-24 w-24" />
                                 </div>
-                                <div className="space-y-1">
-                                    <h4 className="text-xs font-black text-indigo-950 uppercase tracking-widest leading-none mb-1">Neural Data Extraction</h4>
-                                    <p className="text-[11px] text-indigo-600 font-semibold leading-relaxed">
-                                        Our AI engine will automatically parse your uploaded cheque image to extract account details, amounts, and signatures for instant verification.
-                                    </p>
+                                <div className="h-16 w-16 bg-emerald-50 text-emerald-600 rounded-3xl flex items-center justify-center group-hover:bg-emerald-600 group-hover:text-white transition-colors duration-500 shadow-inner">
+                                    <Building className="h-8 w-8" />
                                 </div>
-                            </div>
+                                <div>
+                                    <h3 className="text-xl font-black text-zinc-900 mb-2">Cash Deposit</h3>
+                                    <p className="text-xs text-zinc-500 font-medium">Log incoming cash boxes by denominations.</p>
+                                </div>
+                            </Card>
+
+                            {/* Box Control Card */}
+                            <Card 
+                                onClick={() => { setRequestType('box'); setStep('form'); }}
+                                className="group p-8 border-2 border-transparent bg-white hover:border-indigo-500 shadow-xl shadow-zinc-200/40 rounded-[2.5rem] cursor-pointer transition-all duration-500 flex flex-col items-center text-center space-y-4 hover:-translate-y-2 relative overflow-hidden"
+                            >
+                                <div className="absolute top-0 right-0 p-6 opacity-5 group-hover:scale-110 transition-transform">
+                                    <Package className="h-24 w-24" />
+                                </div>
+                                <div className="h-16 w-16 bg-amber-50 text-amber-600 rounded-3xl flex items-center justify-center group-hover:bg-amber-600 group-hover:text-white transition-colors duration-500 shadow-inner">
+                                    <Package className="h-8 w-8" />
+                                </div>
+                                <div>
+                                    <h3 className="text-xl font-black text-zinc-900 mb-2">Box Management</h3>
+                                    <p className="text-xs text-zinc-500 font-medium">Request new cash boxes or return empty ones.</p>
+                                </div>
+                            </Card>
                         </div>
                     </motion.div>
                 )}
 
-                {step === 'form' && activeTab === 'box' && (
+                {step === 'form' && (
                     <motion.div
-                        key="box-form"
-                        initial={{ opacity: 0, y: 15 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, scale: 0.98 }}
-                        className="space-y-10"
+                        key="form"
+                        initial={{ opacity: 0, scale: 0.98 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="max-w-2xl mx-auto"
                     >
-                        <div className="text-center space-y-3">
-                            <h1 className="text-4xl font-black text-zinc-900 tracking-tight">Request Cheque Box</h1>
-                            <p className="text-zinc-500 font-medium text-sm max-w-sm mx-auto leading-relaxed">
-                                Order a physical cheque book delivered to your preferred location.
-                            </p>
-                        </div>
+                        <Card className="p-8 sm:p-12 border-none bg-white rounded-[2.5rem] shadow-2xl shadow-zinc-200/40 ring-1 ring-zinc-100">
+                            
+                            <div className="flex items-center gap-4 mb-8">
+                                <div className={cn(
+                                    "h-12 w-12 rounded-2xl flex items-center justify-center text-white shadow-lg",
+                                    requestType === 'withdrawal' ? 'bg-indigo-600 shadow-indigo-200' :
+                                    requestType === 'deposit' ? 'bg-emerald-600 shadow-emerald-200' :
+                                    'bg-amber-600 shadow-amber-200'
+                                )}>
+                                    {requestType === 'withdrawal' && <Wallet className="h-6 w-6" />}
+                                    {requestType === 'deposit' && <ArrowDownToLine className="h-6 w-6" />}
+                                    {requestType === 'box' && <Package className="h-6 w-6" />}
+                                </div>
+                                <div>
+                                    <h2 className="text-2xl font-black text-zinc-900 tracking-tight capitalize">{requestType} Request</h2>
+                                    <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">DMB Operator Form</p>
+                                </div>
+                            </div>
 
-                        <div className="max-w-2xl mx-auto">
-                            <Card className="p-10 border-none bg-white rounded-[2.5rem] shadow-xl shadow-zinc-200/50 ring-1 ring-zinc-100">
-                                <form onSubmit={handleSubmit} className="space-y-8">
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                            <form onSubmit={handleSubmit} className="space-y-8">
+
+                                {/* WITHDRAWAL FORM */}
+                                {requestType === 'withdrawal' && (
+                                    <>
                                         <div className="space-y-2">
-                                            <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider ml-1">Account Type</label>
-                                            <select 
-                                                className="w-full px-4 h-12 rounded-xl bg-zinc-50 border-none ring-1 ring-zinc-100 text-sm font-semibold focus:ring-2 focus:ring-indigo-500 appearance-none"
-                                                value={boxRequest.bookType}
-                                                onChange={(e) => setBoxRequest({...boxRequest, bookType: e.target.value})}
-                                            >
-                                                <option>Standard Savings</option>
-                                                <option>Premium Corporate</option>
-                                                <option>Individual Current</option>
-                                            </select>
-                                        </div>
-                                        <div className="space-y-2">
-                                            <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider ml-1">Cheque Leaves</label>
-                                            <select 
-                                                className="w-full px-4 h-12 rounded-xl bg-zinc-50 border-none ring-1 ring-zinc-100 text-sm font-semibold focus:ring-2 focus:ring-indigo-500 appearance-none"
-                                                value={boxRequest.leafCount}
-                                                onChange={(e) => setBoxRequest({...boxRequest, leafCount: e.target.value})}
-                                            >
-                                                <option>25 Leaves</option>
-                                                <option>50 Leaves</option>
-                                                <option>100 Leaves</option>
-                                            </select>
-                                        </div>
-                                        <div className="space-y-2">
-                                            <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider ml-1">Collection Method</label>
-                                            <select 
-                                                className="w-full px-4 h-12 rounded-xl bg-zinc-50 border-none ring-1 ring-zinc-100 text-sm font-semibold focus:ring-2 focus:ring-indigo-500 appearance-none"
-                                                value={boxRequest.deliveryMethod}
-                                                onChange={(e) => setBoxRequest({...boxRequest, deliveryMethod: e.target.value})}
-                                            >
-                                                <option value="Pickup">Pickup at Branch</option>
-                                                <option value="Express">Express Delivery</option>
-                                            </select>
-                                        </div>
-                                        <div className="space-y-2">
-                                            <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider ml-1">Preferred Branch</label>
+                                            <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider ml-1">OID Number</label>
                                             <Input 
-                                                value={boxRequest.branch}
-                                                onChange={(e) => setBoxRequest({...boxRequest, branch: e.target.value})}
-                                                placeholder="Enter branch name"
-                                                className="px-4 h-12 rounded-xl bg-zinc-50 border-zinc-100 text-sm font-semibold"
+                                                value={oidNumber}
+                                                onChange={(e) => setOidNumber(e.target.value)}
+                                                placeholder="Enter unique OID reference"
+                                                className="px-4 h-14 rounded-xl bg-zinc-50 border-zinc-100 text-sm font-semibold transition-all focus:bg-white"
+                                                required
                                             />
                                         </div>
-                                    </div>
-
-                                    <AnimatePresence>
-                                        {boxRequest.deliveryMethod === 'Express' && (
-                                            <motion.div 
-                                                initial={{ opacity: 0, height: 0 }}
-                                                animate={{ opacity: 1, height: 'auto' }}
-                                                exit={{ opacity: 0, height: 0 }}
-                                                className="overflow-hidden"
+                                        <div className="space-y-2">
+                                            <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider ml-1">Cheque Image</label>
+                                            <div 
+                                                onClick={() => fileInputRef.current?.click()}
+                                                className="h-32 rounded-xl border-2 border-dashed border-zinc-200 bg-zinc-50 flex flex-col items-center justify-center cursor-pointer hover:border-indigo-400 hover:bg-white transition-all group overflow-hidden relative"
                                             >
-                                                <div className="space-y-2 pt-2">
-                                                    <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider ml-1">Delivery Address</label>
-                                                    <Input 
-                                                        placeholder="Enter full residential or office address"
-                                                        className="px-4 h-12 rounded-xl bg-zinc-50 border-zinc-100 text-sm font-semibold"
-                                                        required
-                                                    />
-                                                </div>
-                                            </motion.div>
-                                        )}
-                                    </AnimatePresence>
+                                                {attachedImage ? (
+                                                    <img src={attachedImage} alt="Cheque" className="absolute inset-0 w-full h-full object-cover opacity-60" />
+                                                ) : (
+                                                    <>
+                                                        <Upload className="h-6 w-6 text-zinc-400 group-hover:text-indigo-600 mb-2 transition-colors" />
+                                                        <span className="text-xs font-bold text-zinc-500">Tap to upload cheque</span>
+                                                    </>
+                                                )}
+                                                <input type="file" ref={fileInputRef} onChange={handleFileUpload} accept="image/*" className="hidden" />
+                                            </div>
+                                        </div>
+                                    </>
+                                )}
 
-                                    <div className="bg-indigo-50/50 p-6 rounded-2xl border border-indigo-100/50 space-y-2">
-                                         <div className="flex items-center gap-2">
-                                             <Sparkles className="h-4 w-4 text-indigo-600" />
-                                             <span className="text-[10px] font-bold text-indigo-950 uppercase tracking-widest">Notice</span>
-                                         </div>
-                                         <p className="text-[11px] text-indigo-600 font-medium leading-relaxed">
-                                             A processing fee of ₦2,500 will be debited from your primary account upon authorization.
-                                         </p>
-                                    </div>
-
-                                    <Button
-                                        type="submit"
-                                        className="w-full h-16 text-sm font-bold shadow-xl shadow-indigo-100 uppercase tracking-widest rounded-2xl group overflow-hidden relative"
-                                        isLoading={isLoading}
-                                    >
-                                        <div className="absolute inset-0 bg-indigo-600 group-hover:bg-indigo-700 transition-colors" />
-                                        <span className="relative flex items-center justify-center gap-3">
-                                            Confirm Request <ArrowRight className="h-5 w-5" />
-                                        </span>
-                                    </Button>
-                                </form>
-                            </Card>
-                        </div>
-                    </motion.div>
-                )}
-
-                {step === 'scanning' && (
-                    <motion.div
-                        key="scanning-step"
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        className="flex flex-col items-center justify-center py-20 min-h-[60vh]"
-                    >
-                        <div className="relative w-full max-w-lg aspect-[16/9] bg-white rounded-[2.5rem] shadow-2xl overflow-hidden border-8 border-zinc-50 ring-1 ring-zinc-200/50">
-                            {attachedImage && (
-                                <img src={attachedImage} alt="Scanning" className="w-full h-full object-cover opacity-50 grayscale" />
-                            )}
-                            
-                            <motion.div 
-                                initial={{ top: '0%' }}
-                                animate={{ top: '100%' }}
-                                transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
-                                className="absolute left-0 right-0 h-0.5 bg-indigo-500 shadow-[0_0_15px_rgba(99,102,241,0.5)]"
-                            />
-                            
-                            <div className="absolute inset-0 flex items-center justify-center bg-white/40 backdrop-blur-[2px]">
-                                <div className="px-6 py-4 rounded-2xl bg-white border border-zinc-100 shadow-xl flex items-center gap-4">
-                                    <Loader2 className="h-5 w-5 text-indigo-600 animate-spin" />
-                                    <span className="text-zinc-900 font-bold text-xs uppercase tracking-widest">Digitizing Document</span>
-                                </div>
-                            </div>
-                        </div>
-                    </motion.div>
-                )}
-
-                {step === 'details' && (
-                    <motion.div
-                        key="details-step"
-                        initial={{ opacity: 0, x: 20 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start px-4"
-                    >
-                        {/* Minimal Preview */}
-                        <div className="lg:col-span-5">
-                            <Card className="p-4 border-none shadow-xl shadow-zinc-200/50 rounded-[2.5rem] bg-white ring-1 ring-zinc-100">
-                                <div className="flex items-center justify-between mb-4 px-2">
-                                    <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Source Image</span>
-                                    <button 
-                                        onClick={resetUpload}
-                                        className="h-8 w-8 rounded-full bg-zinc-50 text-zinc-400 flex items-center justify-center hover:bg-zinc-100 hover:text-red-600 transition-all focus:ring-0"
-                                    >
-                                        <X className="h-4 w-4" />
-                                    </button>
-                                </div>
-                                <div className="relative aspect-[3/4] bg-zinc-50 rounded-2xl overflow-hidden shadow-inner border border-zinc-100">
-                                    {attachedImage && (
-                                        <img src={attachedImage} alt="Cheque" className="w-full h-full object-cover grayscale-[20%]" />
-                                    )}
-                                </div>
-                                <div className="mt-4 p-4 bg-indigo-50/50 rounded-2xl border border-indigo-100/50 flex items-center gap-4">
-                                    <div className="h-10 w-10 rounded-xl bg-indigo-600 flex items-center justify-center text-white">
-                                        <ShieldCheck className="h-5 w-5" />
-                                    </div>
-                                    <div>
-                                        <p className="text-[10px] font-bold text-indigo-950 uppercase">Verified Scan</p>
-                                        <p className="text-[9px] text-indigo-600 font-semibold uppercase">Confidence: 98.4%</p>
-                                    </div>
-                                </div>
-                            </Card>
-                        </div>
-
-                        {/* Minimal Form */}
-                        <div className="lg:col-span-7">
-                            <Card className="p-10 border-none bg-white rounded-[2.5rem] shadow-xl shadow-zinc-200/50 ring-1 ring-zinc-100">
-                                <form onSubmit={handleSubmit} className="space-y-8">
+                                {/* DEPOSIT FORM */}
+                                {requestType === 'deposit' && (
                                     <div className="space-y-6">
-                                        <div className="flex items-center gap-3 mb-6">
-                                            <div className="h-4 w-1 bg-indigo-600 rounded-full" />
-                                            <h3 className="text-sm font-bold text-zinc-900 uppercase tracking-wide">Extracted Data</h3>
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div className="space-y-2">
+                                                <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider ml-1">Total Boxes</label>
+                                                <Input 
+                                                    type="number"
+                                                    value={totalBoxes}
+                                                    onChange={(e) => setTotalBoxes(e.target.value)}
+                                                    placeholder="e.g. 5"
+                                                    className="px-4 h-14 rounded-xl bg-zinc-50 border-zinc-100 font-semibold"
+                                                    required
+                                                />
+                                            </div>
+                                            <div className="space-y-2">
+                                                <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider ml-1">Total Amount (₦)</label>
+                                                <Input 
+                                                    type="number"
+                                                    value={totalAmount}
+                                                    onChange={(e) => setTotalAmount(e.target.value)}
+                                                    placeholder="0.00"
+                                                    className="px-4 h-14 rounded-xl bg-zinc-50 border-zinc-100 font-black text-indigo-900"
+                                                    required
+                                                />
+                                            </div>
                                         </div>
 
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-6">
-                                            {[
-                                                { label: "Account Holder", name: "accountName", type: "text" },
-                                                { label: "Account Number", name: "accountNumber", type: "text", max: 10 },
-                                                { label: "Cheque Number", name: "chequeNumber", type: "text" },
-                                                { label: "Amount (₦)", name: "amount", type: "number" },
-                                                { label: "Phone Number", name: "phoneNumber", type: "text" },
-                                                { label: "Bank Branch", name: "branch", type: "text" }
-                                            ].map((field) => (
-                                                <div key={field.name} className="space-y-2">
-                                                    <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider ml-1">{field.label}</label>
-                                                    <Input 
-                                                        value={formData[field.name as keyof typeof formData]} 
-                                                        onChange={(e) => setFormData({...formData, [field.name]: e.target.value})}
-                                                        required 
-                                                        maxLength={field.max}
-                                                        className="px-4 h-12 rounded-xl bg-zinc-50 border-zinc-100 text-sm font-semibold transition-all focus:bg-white"
-                                                    />
+                                        <div className="pt-4 pb-2">
+                                            <h4 className="text-[10px] font-black text-zinc-900 uppercase tracking-widest border-b border-zinc-100 pb-2 mb-4 flex items-center gap-2">
+                                                Denomination Breakdown
+                                            </h4>
+                                            
+                                            <div className="space-y-3">
+                                                {denominations.map((d, i) => (
+                                                    <div key={d.id} className="flex gap-2 items-start">
+                                                        <div className="flex-1 space-y-1">
+                                                            <Input 
+                                                                type="number" placeholder="Denom (e.g. 1000)" 
+                                                                className="h-10 text-xs px-3"
+                                                                value={d.denomination} onChange={(e) => updateDenomination(d.id, 'denomination', e.target.value)}
+                                                                required
+                                                            />
+                                                        </div>
+                                                        <div className="flex-1 space-y-1">
+                                                            <Input 
+                                                                type="number" placeholder="Pieces" 
+                                                                className="h-10 text-xs px-3"
+                                                                value={d.pieces} onChange={(e) => updateDenomination(d.id, 'pieces', e.target.value)}
+                                                                required
+                                                            />
+                                                        </div>
+                                                        <div className="flex-1 space-y-1">
+                                                            <Input 
+                                                                type="text" value={`₦ ${d.amount.toLocaleString()}`} 
+                                                                className="h-10 text-xs px-3 bg-zinc-100 border-none font-bold text-zinc-600 cursor-not-allowed"
+                                                                readOnly
+                                                            />
+                                                        </div>
+                                                        <Button 
+                                                            type="button" variant="ghost" 
+                                                            onClick={() => removeDenomination(d.id)}
+                                                            className="h-10 w-10 p-0 text-red-400 hover:text-red-600 hover:bg-red-50 shrink-0"
+                                                        >
+                                                            <Trash2 className="h-4 w-4" />
+                                                        </Button>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                            
+                                            <Button type="button" variant="ghost" onClick={addDenomination} className="mt-4 text-[10px] font-bold uppercase tracking-widest text-indigo-600 hover:bg-indigo-50">
+                                                <Plus className="h-4 w-4 mr-1" /> Add Denomination
+                                            </Button>
+                                        </div>
+
+                                        {/* Validation Panel */}
+                                        <div className={cn(
+                                            "p-4 rounded-xl border flex items-center justify-between",
+                                            isValidDeposit ? "bg-emerald-50 border-emerald-100" : "bg-amber-50 border-amber-100"
+                                        )}>
+                                            <div>
+                                                <p className={cn("text-[9px] font-bold uppercase tracking-widest", isValidDeposit ? "text-emerald-700" : "text-amber-700")}>
+                                                    Calculated Total
+                                                </p>
+                                                <p className={cn("text-lg font-black tracking-tight", isValidDeposit ? "text-emerald-900" : "text-amber-900")}>
+                                                    ₦ {totalCalculatedAmount.toLocaleString()}
+                                                </p>
+                                            </div>
+                                            {isValidDeposit ? (
+                                                <ShieldCheck className="h-6 w-6 text-emerald-500" />
+                                            ) : (
+                                                <div className="text-right">
+                                                    <p className="text-[9px] font-black text-amber-600 uppercase">Mismatch</p>
+                                                    <p className="text-xs font-bold text-amber-800">Must equal ₦{parseFloat(totalAmount || '0').toLocaleString()}</p>
                                                 </div>
-                                            ))}
+                                            )}
                                         </div>
                                     </div>
+                                )}
 
-                                    <Button
-                                        type="submit"
-                                        className="w-full h-16 text-sm font-bold shadow-xl shadow-indigo-100 uppercase tracking-widest rounded-2xl group overflow-hidden relative"
-                                        isLoading={isLoading}
-                                    >
-                                        <div className="absolute inset-0 bg-indigo-600 group-hover:bg-indigo-700 transition-colors" />
-                                        <span className="relative flex items-center justify-center gap-3">
-                                            Confirm & Submit <ArrowRight className="h-5 w-5" />
-                                        </span>
-                                    </Button>
-                                </form>
-                            </Card>
-                        </div>
+                                {/* BOX FORM */}
+                                {requestType === 'box' && (
+                                    <div className="space-y-6">
+                                        
+                                        <div className="flex bg-zinc-100/50 p-1.5 rounded-2xl gap-2">
+                                            <button
+                                                type="button"
+                                                onClick={() => setBoxAction('request')}
+                                                className={cn(
+                                                    "flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all",
+                                                    boxAction === 'request' ? "bg-white text-indigo-600 shadow-sm" : "text-zinc-500 hover:bg-zinc-100"
+                                                )}
+                                            >
+                                                Request Empty Boxes
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => setBoxAction('return')}
+                                                className={cn(
+                                                    "flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all",
+                                                    boxAction === 'return' ? "bg-white text-indigo-600 shadow-sm" : "text-zinc-500 hover:bg-zinc-100"
+                                                )}
+                                            >
+                                                Return Boxes
+                                            </button>
+                                        </div>
+
+                                        {boxAction && (
+                                            <AnimatePresence>
+                                                <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} className="space-y-6">
+                                                    <div className="space-y-2">
+                                                        <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider ml-1">Number of Boxes</label>
+                                                        <Input 
+                                                            type="number"
+                                                            value={numberOfBoxes}
+                                                            onChange={(e) => setNumberOfBoxes(e.target.value)}
+                                                            placeholder="e.g. 10"
+                                                            className="px-4 h-14 rounded-xl bg-zinc-50 border-zinc-100 font-semibold"
+                                                            required
+                                                        />
+                                                    </div>
+                                                    <div className="space-y-2">
+                                                        <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider ml-1">Attach Proof (Optional)</label>
+                                                        <div 
+                                                            onClick={() => fileInputRef.current?.click()}
+                                                            className="h-24 rounded-xl border-2 border-dashed border-zinc-200 bg-zinc-50 flex flex-col items-center justify-center cursor-pointer hover:border-indigo-400 hover:bg-white transition-all group overflow-hidden relative"
+                                                        >
+                                                            {attachedImage ? (
+                                                                <img src={attachedImage} alt="Proof" className="absolute inset-0 w-full h-full object-cover opacity-60" />
+                                                            ) : (
+                                                                <Upload className="h-5 w-5 text-zinc-400 group-hover:text-indigo-600 transition-colors" />
+                                                            )}
+                                                            <input type="file" ref={fileInputRef} onChange={handleFileUpload} accept="image/*" className="hidden" />
+                                                        </div>
+                                                    </div>
+                                                </motion.div>
+                                            </AnimatePresence>
+                                        )}
+                                    </div>
+                                )}
+
+                                <Button
+                                    type="submit"
+                                    disabled={requestType === 'deposit' && !isValidDeposit}
+                                    className={cn(
+                                        "w-full h-16 text-sm font-bold shadow-xl uppercase tracking-widest rounded-2xl group overflow-hidden relative transition-all",
+                                        (requestType === 'deposit' && !isValidDeposit) 
+                                            ? "opacity-50 cursor-not-allowed bg-zinc-300 shadow-none text-zinc-500" 
+                                            : "shadow-indigo-100"
+                                    )}
+                                    isLoading={isLoading}
+                                >
+                                    {!(requestType === 'deposit' && !isValidDeposit) && <div className="absolute inset-0 bg-indigo-600 group-hover:bg-indigo-700 transition-colors" />}
+                                    <span className="relative flex items-center justify-center gap-3">
+                                        Authorize Request 
+                                        {!(requestType === 'deposit' && !isValidDeposit) && <ArrowRight className="h-5 w-5" />}
+                                    </span>
+                                </Button>
+                            </form>
+                        </Card>
                     </motion.div>
                 )}
 
@@ -441,7 +448,7 @@ export default function SubmitCheque() {
                         key="success-step"
                         initial={{ opacity: 0, scale: 0.95 }}
                         animate={{ opacity: 1, scale: 1 }}
-                        className="flex flex-col items-center justify-center py-20 text-center min-h-[60vh]"
+                        className="flex flex-col items-center justify-center py-20 text-center min-h-[50vh]"
                     >
                         <div className="mb-10 p-12 bg-white rounded-[4rem] shadow-xl shadow-zinc-100 border border-zinc-50 flex items-center justify-center">
                             <div className="h-24 w-24 bg-emerald-500 rounded-[2.5rem] flex items-center justify-center text-white shadow-2xl shadow-emerald-200">
@@ -449,20 +456,18 @@ export default function SubmitCheque() {
                             </div>
                         </div>
 
-                        <div className="space-y-4 max-w-sm mx-auto">
+                        <div className="space-y-4 max-w-md mx-auto">
                             <h2 className="text-3xl font-black text-zinc-900 tracking-tight">
-                                {activeTab === 'submit' ? 'Voucher Registered' : 'Request Broadcasted'}
+                                Transmission Successful
                             </h2>
                             <p className="text-zinc-500 font-medium text-sm leading-relaxed">
-                                {activeTab === 'submit' 
-                                    ? "Your cheque submission has been successfully digitized and broadcasted to the verification node."
-                                    : "Your cheque booklet request has been successfully queued for fulfillment and courier assignment."}
+                                Your DMB {requestType} request has been securely encoded and transmitted to the central processing node.
                             </p>
                         </div>
 
                         <div className="mt-12 inline-flex items-center gap-4 bg-zinc-900 text-white px-10 py-5 rounded-2xl text-[11px] font-bold uppercase tracking-[0.2em] shadow-2xl">
                             <div className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                            Finalizing Transaction
+                            Clearing Vault Interface
                         </div>
                     </motion.div>
                 )}

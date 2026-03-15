@@ -1,343 +1,275 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import {
-    ShieldCheck, ArrowLeft, Stamp, CheckCircle2,
-    User, Calendar, Hash, Phone, ChevronRight,
-    Clock, Building2, Activity, UserCog,
-    ExternalLink, Timer, RefreshCcw, LayoutDashboard, Zap
+import { 
+    ArrowLeft, CheckCircle2, User, Building2, Calendar, 
+    ShieldCheck, Wallet, Image as ImageIcon, X, Zap, 
+    Activity, ArrowUpRight, Copy, FileText, Download, CheckCircle, Clock
 } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Button } from "@/components/ui/Button";
+import { cn, formatCurrency, formatDate } from "@/lib/helpers";
 import { mockCheques } from "@/lib/mock-data";
-import { formatCurrency, formatDate } from "@/lib/helpers";
-import { motion } from "framer-motion";
-import Link from 'next/link';
 
-// ─── Info Card ────────────────────────────────────────────────────────────────
-function InfoCard({ icon: Icon, label, value, sub, accent = false }: {
-    icon: any; label: string; value: string; sub?: string; accent?: boolean;
-}) {
+function StatCard({ label, value, icon: Icon, subValue }: { label: string; value: string; icon: any; subValue?: string }) {
     return (
-        <div className={`rounded-2xl p-4 border flex gap-3 items-start transition-all
-            ${accent
-                ? 'bg-indigo-50 border-indigo-100'
-                : 'bg-white border-zinc-100 shadow-sm hover:border-indigo-100'}`}>
-            <div className={`mt-0.5 h-8 w-8 shrink-0 rounded-xl flex items-center justify-center
-                ${accent ? 'bg-indigo-100 text-indigo-600' : 'bg-zinc-50 text-zinc-400'}`}>
-                <Icon className="h-4 w-4" />
-            </div>
-            <div className="min-w-0">
-                <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest mb-0.5">{label}</p>
-                <p className={`text-sm font-bold truncate ${accent ? 'text-indigo-900' : 'text-zinc-800'}`}>{value}</p>
-                {sub && <p className="text-[10px] text-zinc-400 mt-0.5">{sub}</p>}
+        <div className="p-5 rounded-2xl bg-white border border-zinc-200 shadow-sm hover:border-indigo-200 hover:shadow-md transition-all group">
+            <div className="flex items-start justify-between">
+                <div className="min-w-0 pr-4">
+                    <p className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-2">{label}</p>
+                    <p className="text-xl font-bold text-zinc-900 truncate">{value}</p>
+                    {subValue && <p className="text-sm font-medium text-zinc-500 mt-1 truncate">{subValue}</p>}
+                </div>
+                <div className="h-10 w-10 shrink-0 rounded-xl bg-indigo-50 flex items-center justify-center text-indigo-600 group-hover:bg-indigo-600 group-hover:text-white transition-colors">
+                    <Icon className="h-5 w-5" />
+                </div>
             </div>
         </div>
     );
 }
 
-// ─── Status Badge ─────────────────────────────────────────────────────────────
-function StatusBadge({ status }: { status: string }) {
-    const map: Record<string, string> = {
-        PENDING: 'bg-amber-50 text-amber-600 border-amber-200',
-        APPROVED: 'bg-emerald-50 text-emerald-600 border-emerald-200',
-        RETURNED: 'bg-red-50 text-red-600 border-red-200',
-        PAID: 'bg-indigo-50 text-indigo-600 border-indigo-200',
-    };
-    const key = Object.keys(map).find(k => status.includes(k)) ?? '';
-    return (
-        <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border ${map[key] ?? 'bg-zinc-50 text-zinc-500 border-zinc-200'}`}>
-            {status.replace(/_/g, ' ')}
-        </span>
-    );
-}
-
-// ─── Log Icon ─────────────────────────────────────────────────────────────────
-function LogIcon({ action }: { action: string }) {
-    if (action.includes('APPROVED')) return <CheckCircle2 className="h-4 w-4 text-emerald-500" />;
-    if (action.includes('RETURNED')) return <RefreshCcw className="h-4 w-4 text-red-400" />;
-    if (action.includes('PAID')) return <LayoutDashboard className="h-4 w-4 text-indigo-500" />;
-    return <Stamp className="h-4 w-4 text-zinc-400" />;
-}
-
-// ─── Main Page ────────────────────────────────────────────────────────────────
 export default function AdminChequeDetailsPage() {
     const router = useRouter();
     const { id } = useParams();
-    const cheque = useMemo(() => mockCheques.find(c => c.id === id), [id]);
+    const [isModalOpen, setIsModalOpen] = useState(false);
+    const [copied, setCopied] = useState(false);
 
-    // Calculate durations for each office (Hardcoded for demonstration)
-    const officeStats = useMemo(() => {
-        if (!cheque) return [];
-        return [
-            { office: 'Customer Service', duration: '12m' },
-            { office: 'Branch Controller', duration: '45m' },
-            { office: 'Teller', duration: '8m' },
-            { office: 'Treasury', duration: '5m' }
-        ];
-    }, [cheque]);
+    // Fetch the real cheque data
+    const chequeData = useMemo(() => mockCheques.find(c => c.id === id), [id]);
 
-    if (!cheque) return (
-        <div className="min-h-screen flex flex-col items-center justify-center bg-zinc-50 gap-3">
-            <div className="h-10 w-10 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin" />
-            <p className="text-zinc-400 text-xs font-bold uppercase tracking-widest">Loading...</p>
+    const chequeResource = useMemo(() => {
+        if (!chequeData) return null;
+        return {
+            id: chequeData.id,
+            amount: chequeData.amount,
+            status: chequeData.status,
+            oidNumber: chequeData.chequeNumber, // Using chequeNumber as OID
+            bankBranch: chequeData.bankBranch,
+            submittedAt: chequeData.submittedAt,
+            currentOffice: chequeData.currentOffice,
+            recipient: chequeData.accountName,
+            accountNumber: chequeData.accountNumber,
+            type: chequeData.requestType === 'WITHDRAWAL' ? 'Withdrawal' : (chequeData.requestType === 'DEPOSIT' ? 'Cash Deposit' : 'Box Request')
+        };
+    }, [chequeData]);
+
+    const handleCopy = () => {
+        if (chequeResource) {
+            navigator.clipboard.writeText(chequeResource.oidNumber);
+            setCopied(true);
+            setTimeout(() => setCopied(false), 2000);
+        }
+    };
+
+    if (!chequeResource) return (
+        <div className="min-h-screen flex flex-col items-center justify-center bg-zinc-50 gap-4">
+            <Activity className="h-10 w-10 text-indigo-600 animate-pulse" />
+            <p className="text-zinc-400 text-xs font-bold uppercase tracking-widest">Retrieving Secure Intel...</p>
         </div>
     );
 
-    const submissionTime = new Date(cheque.submittedAt).getTime();
-    const elapsed = Date.now() - submissionTime;
-    const hrs = Math.floor(elapsed / 3600000);
-    const mins = Math.floor((elapsed % 3600000) / 60000);
-    const isDone = cheque.currentOffice === 'DONE';
+    const isWithdrawal = chequeResource.type === 'Withdrawal';
+    const offices = ['Customer', 'Customer Service', 'Branch Controller', 'Teller', 'DONE'];
+    const currentIdx = offices.indexOf(chequeResource.currentOffice) !== -1 ? offices.indexOf(chequeResource.currentOffice) : 2;
 
     return (
-        <div className="min-h-screen bg-[#F8FAFC]">
-            {/* ── Top Nav ── */}
-            <header className="sticky top-0 z-40 bg-white/80 backdrop-blur-xl border-b border-zinc-200/60 px-4 sm:px-6 py-3 flex items-center justify-between gap-3">
-                <div className="flex items-center gap-3 min-w-0">
-                    <button
-                        onClick={() => router.back()}
-                        className="shrink-0 h-8 w-8 flex items-center justify-center rounded-xl bg-zinc-50 border border-zinc-200 text-zinc-500 hover:text-indigo-600 hover:border-indigo-200 transition-all"
-                    >
-                        <ArrowLeft className="h-4 w-4" />
-                    </button>
-                    <div className="flex items-center gap-1.5 min-w-0 text-xs font-semibold">
-                        <Link href="/admin/dashboard" className="text-zinc-400 hover:text-indigo-600 transition-colors hidden sm:block shrink-0">
-                            Dashboard
-                        </Link>
-                        <ChevronRight className="h-3 w-3 text-zinc-300 hidden sm:block shrink-0" />
-                        <span className="text-zinc-700 truncate">Cheque #{cheque.chequeNumber}</span>
+        <div className="min-h-screen bg-zinc-50 text-zinc-900 font-sans antialiased pb-20">
+            {/* Header */}
+            <header className="bg-white border-b border-zinc-200 sticky top-0 z-40 shadow-sm">
+                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                        <button 
+                            onClick={() => router.back()}
+                            className="p-2.5 bg-white border border-zinc-200 hover:bg-zinc-50 rounded-xl transition-colors shadow-sm"
+                        >
+                            <ArrowLeft className="h-5 w-5 text-zinc-600" />
+                        </button>
+                        <div>
+                            <div className="flex items-center gap-3">
+                                <h1 className="text-xl font-bold text-zinc-900 hidden sm:block">Cheque Review</h1>
+                                <span className="px-3 py-1 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-100 uppercase tracking-widest text-[10px] font-bold">
+                                    {chequeResource.status}
+                                </span>
+                            </div>
+                            <p className="text-sm font-medium text-zinc-500 mt-1">Ref: {chequeResource.id}</p>
+                        </div>
                     </div>
-                </div>
-                <div className="flex items-center gap-2 shrink-0">
-                    <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
-                    <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider hidden sm:block">Live</span>
                 </div>
             </header>
 
-            <main className="max-w-5xl mx-auto px-4 sm:px-6 py-6 space-y-6 pb-20">
-                {/* ── Hero Card ── */}
-                <motion.div
-                    initial={{ opacity: 0, y: 16 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="relative overflow-hidden rounded-3xl bg-white border border-zinc-100 shadow-xl shadow-indigo-50/50 p-6 sm:p-8"
-                >
-                    {/* bg decoration */}
-                    <div className="absolute inset-0 pointer-events-none overflow-hidden">
-                        <Zap className="absolute -right-8 -top-8 h-48 w-48 text-indigo-50 rotate-12" />
-                    </div>
-
-                    <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-6">
-                        {/* Left */}
-                        <div className="space-y-3">
-                            <div className="flex flex-wrap gap-2">
-                                <StatusBadge status={cheque.status} />
-                                <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-bold text-zinc-500 bg-zinc-50 border border-zinc-200">
-                                    Ref: {cheque.id}
-                                </span>
-                            </div>
-                            <p className="text-4xl sm:text-5xl font-black text-zinc-900 tracking-tighter leading-none">
-                                {formatCurrency(cheque.amount)}
-                            </p>
-                            <div className="flex flex-wrap gap-4 text-sm">
+            <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-8">
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+                    
+                    {/* Left Column: Main Actions & Stats */}
+                    <div className="lg:col-span-8 space-y-8">
+                        {/* Amount Hero Card */}
+                        <div className="bg-gradient-to-br from-indigo-900 to-indigo-950 rounded-[2rem] p-8 sm:p-10 text-white shadow-xl relative overflow-hidden">
+                            {/* Decorative background elements */}
+                            <div className="absolute top-0 right-0 -mt-20 -mr-20 bg-white/5 h-80 w-80 rounded-full blur-3xl"></div>
+                            <div className="absolute bottom-0 left-0 -mb-20 -ml-20 bg-indigo-500/20 h-80 w-80 rounded-full blur-3xl pointer-events-none"></div>
+                            
+                            <div className="relative z-10 flex flex-col sm:flex-row sm:items-end justify-between gap-3">
                                 <div>
-                                    <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Beneficiary</p>
-                                    <p className="font-bold text-zinc-800">{cheque.accountName}</p>
+                                    {/* <p className="text-indigo-200 font-semibold mb-2 uppercase tracking-wider text-sm">Amount Under Review</p>
+                                    <div className="flex items-baseline gap-2">
+                                        <h2 className="text-3xl sm:text-5xl md:text-6xl font-black tracking-tight whitespace-nowrap">
+                                            {formatCurrency(chequeResource.amount)}
+                                        </h2>
+                                    </div> */}
+                                    <div className="mt-8 flex items-center gap-3 sm:gap-6 flex-wrap">
+                                        <div className="flex items-center gap-2 bg-black/20 px-4 py-2 rounded-xl backdrop-blur-md border border-white/10">
+                                            <Activity className="h-4 w-4 text-emerald-400" />
+                                            <span className="text-sm font-medium text-indigo-100">Live Audit Syncing</span>
+                                        </div>
+                                        <div className="flex items-center gap-2 text-indigo-200 text-sm font-medium">
+                                            <Calendar className="h-4 w-4 opacity-70" />
+                                            {formatDate(chequeResource.submittedAt)}
+                                        </div>
+                                    </div>
                                 </div>
-                                <div className="w-px bg-zinc-100 self-stretch hidden sm:block" />
-                                <div>
-                                    <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Cheque No.</p>
-                                    <p className="font-black text-indigo-600 font-mono">{cheque.chequeNumber}</p>
+                                <div className="bg-white/10 p-4 sm:p-5 rounded-3xl backdrop-blur-md border border-white/20 w-full sm:w-auto min-w-[240px] shrink-0 mt-6 sm:mt-0 shadow-lg">
+                                    <p className="text-[10px] text-indigo-300 uppercase tracking-widest font-bold mb-2.5">OID Number</p>
+                                    <div className="flex items-center gap-2">
+                                        <p className="text-sm sm:text-base font-mono font-medium tracking-widest bg-black/20 px-4 py-2.5 rounded-2xl flex-1 text-center truncate border border-white/5 shadow-inner">
+                                            {chequeResource.oidNumber}
+                                        </p>
+                                        <button 
+                                            onClick={handleCopy}
+                                            className="h-[44px] w-[44px] shrink-0 bg-indigo-500/20 hover:bg-indigo-500/40 rounded-2xl flex items-center justify-center transition-all border border-indigo-400/20 hover:scale-105"
+                                            title="Copy OID Number"
+                                        >
+                                            {copied ? <CheckCircle className="h-4 w-4 text-emerald-400" /> : <Copy className="h-4 w-4 text-indigo-200" />}
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
                         </div>
 
-                        {/* Right – Status box */}
-                        <div className="bg-zinc-900 text-white rounded-2xl p-5 w-full sm:w-56 shrink-0 space-y-3">
-                            <p className="text-[9px] font-bold text-zinc-500 uppercase tracking-widest">Current Stage</p>
-                            <p className="text-xl font-black">{isDone ? 'Settled ✓' : 'In Progress'}</p>
-                            <p className="text-[10px] text-zinc-400 font-medium">At: {cheque.currentOffice}</p>
-                            <div className="h-1.5 w-full bg-zinc-800 rounded-full overflow-hidden">
-                                <motion.div
-                                    initial={{ width: 0 }}
-                                    animate={{ width: isDone ? '100%' : '65%' }}
-                                    transition={{ duration: 0.8, ease: 'easeOut' }}
-                                    className="h-full bg-indigo-500 rounded-full"
-                                />
+                        {/* Detailed Stats Grid */}
+                        <div>
+                            <h3 className="text-lg font-bold text-zinc-900 mb-4 px-1">Custodian Information</h3>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <StatCard icon={User} label="Initiating Entity" value={chequeResource.recipient} subValue={`Acc: ${chequeResource.accountNumber}`} />
+                                <StatCard icon={FileText} label="Intended Action" value={chequeResource.type} subValue="Automated Classification" />
                             </div>
                         </div>
-                    </div>
-                </motion.div>
 
-                {/* ── Layout: Details + Sidebar ── */}
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                    {/* ── Left: Details + Timeline ── */}
-                    <div className="lg:col-span-2 space-y-6">
-                        {/* Info Grid */}
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                            <InfoCard icon={User} label="Account Holder" value={cheque.accountName} sub={`Acc: ${cheque.accountNumber}`} />
-                            <InfoCard icon={Hash} label="Account Number" value={cheque.accountNumber} sub="Verified Savings" accent />
-                            <InfoCard icon={Building2} label="Branch" value={cheque.bankBranch} sub="Lagos Mainland" />
-                            <InfoCard icon={Phone} label="Phone" value={cheque.phoneNumber} sub="Registered Mobile" />
-                            <InfoCard icon={Calendar} label="Submitted" value={formatDate(cheque.submittedAt).split(' - ')[0]} sub={formatDate(cheque.submittedAt).split(' - ')[1]} />
-                            <InfoCard icon={ShieldCheck} label="Validation" value="Match Confirmed" sub="Digital Signature Passed" accent />
-                        </div>
-
-                        {/* Timeline */}
-                        <div className="bg-white rounded-3xl border border-zinc-100 shadow-lg p-6 sm:p-8">
-                            <div className="flex items-center gap-3 mb-8">
-                                <div className="h-9 w-9 bg-indigo-50 rounded-xl flex items-center justify-center text-indigo-600">
-                                    <Activity className="h-5 w-5" />
-                                </div>
-                                <div>
-                                    <p className="font-black text-zinc-900 text-base">Office Progress Tracker</p>
-                                    <p className="text-[10px] text-zinc-400 font-semibold uppercase tracking-wider">Live location & verification status</p>
-                                </div>
-                            </div>
-
-                            <div className="space-y-4">
-                                {(['Customer', 'Customer Service', 'Branch Controller', 'Teller', 'DONE'] as const).map((office, idx) => {
-                                    const isCurrent = cheque.currentOffice === office;
-                                    const hasPassed = idx < (['Customer', 'Customer Service', 'Branch Controller', 'Teller', 'DONE'] as const).indexOf(cheque.currentOffice as any) || cheque.status === 'PAID';
-                                    const isReturned = cheque.status.includes('RETURNED') && isCurrent;
-                                    const isFinal = office === 'DONE';
-
-                                    let statusLabel = 'Waiting';
-                                    let statusColor = 'text-zinc-300 bg-zinc-50 border-zinc-100';
-                                    let Icon = Clock;
-
-                                    if (hasPassed) {
-                                        statusLabel = 'Verified';
-                                        statusColor = 'text-emerald-600 bg-emerald-50 border-emerald-100';
-                                        Icon = CheckCircle2;
-                                    } else if (isReturned) {
-                                        statusLabel = 'Returned';
-                                        statusColor = 'text-rose-600 bg-rose-50 border-rose-100';
-                                        Icon = RefreshCcw;
-                                    } else if (isCurrent) {
-                                        statusLabel = isFinal ? 'Settled' : 'Pending Action';
-                                        statusColor = isFinal ? 'text-indigo-600 bg-indigo-50 border-indigo-100' : 'text-amber-600 bg-amber-50 border-amber-100';
-                                        Icon = isFinal ? LayoutDashboard : Timer;
-                                    }
+                        {/* Verification Path */}
+                        <div className="pt-4">
+                            <h3 className="text-lg font-bold text-zinc-900 mb-4 px-1">Network Transit Path</h3>
+                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                                {['Customer Service', 'Branch Controller', 'Teller', 'DONE'].map((step, i) => {
+                                    const stepOrigIdx = offices.indexOf(step);
+                                    const isPast = stepOrigIdx < currentIdx || chequeResource.status === 'PAID';
+                                    const isCurrent = stepOrigIdx === currentIdx && chequeResource.status !== 'PAID';
+                                    const stepLabel = step === 'DONE' ? 'Settlement' : step;
 
                                     return (
-                                        <div key={office} className={`flex items-center justify-between p-4 rounded-2xl border transition-all ${isCurrent ? 'ring-2 ring-indigo-500/20 border-indigo-100 bg-white' : 'border-zinc-50 bg-[#FCFDFF]'}`}>
-                                            <div className="flex items-center gap-4">
-                                                <div className={`h-10 w-10 rounded-full flex items-center justify-center border-4 border-white shadow-sm ${hasPassed ? 'bg-emerald-500 text-white' : isCurrent ? (isReturned ? 'bg-rose-500 text-white' : 'bg-amber-500 text-white') : 'bg-zinc-100 text-zinc-400'}`}>
-                                                    {isFinal && hasPassed ? <ShieldCheck className="h-5 w-5" /> : <span className="text-xs font-black">{idx + 1}</span>}
-                                                </div>
-                                                <div>
-                                                    <p className={`text-sm font-black ${hasPassed ? 'text-zinc-500' : 'text-zinc-900'}`}>
-                                                        {office === 'DONE' ? 'Treasury (Final Release)' : office}
-                                                    </p>
-                                                    <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">
-                                                        {office === 'Customer' ? 'Entry Point' : 'Verification Desk'}
-                                                    </p>
-                                                </div>
+                                        <div key={step} className={cn(
+                                            "rounded-2xl p-4 border flex flex-col min-h-[110px] justify-between transition-all",
+                                            isCurrent ? "bg-indigo-50 border-indigo-200 shadow-sm" : 
+                                            isPast ? "bg-white border-zinc-200" : "bg-zinc-50 border-zinc-200/50"
+                                        )}>
+                                            <div className={cn(
+                                                "h-7 w-7 rounded-full flex items-center justify-center shrink-0 mb-3",
+                                                isPast ? "bg-emerald-500 text-white" : 
+                                                isCurrent ? "bg-indigo-600 text-white" : "bg-zinc-100 text-zinc-400 border border-zinc-200/50"
+                                            )}>
+                                                {isPast ? <CheckCircle2 className="h-4 w-4" /> : 
+                                                 isCurrent ? <div className="h-2 w-2 bg-white rounded-full animate-pulse" /> : 
+                                                 <span className="text-[10px] font-bold">{i+1}</span>}
                                             </div>
                                             
-                                            <div className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border text-[10px] font-black uppercase tracking-tighter ${statusColor}`}>
-                                                <Icon className="h-3.5 w-3.5" />
-                                                {statusLabel}
+                                            <div>
+                                                <p className={cn(
+                                                    "text-xs font-bold uppercase tracking-wider leading-tight",
+                                                    isPast ? "text-zinc-900" : isCurrent ? "text-indigo-800" : "text-zinc-600"
+                                                )}>{stepLabel}</p>
+                                                <p className={cn(
+                                                    "text-[10px] font-bold mt-1 uppercase tracking-widest",
+                                                    isPast ? "text-emerald-600" : isCurrent ? "text-indigo-600" : "text-zinc-500"
+                                                )}>
+                                                    {isPast ? 'Cleared' : isCurrent ? 'Occupied' : 'Pending'}
+                                                </p>
                                             </div>
                                         </div>
                                     );
                                 })}
                             </div>
-
-                            {/* Release Money Note */}
-                            {cheque.status === 'PAID' && (
-                                <div className="mt-8 p-6 rounded-[2rem] bg-indigo-600 text-white shadow-xl shadow-indigo-200 flex items-center justify-between overflow-hidden relative">
-                                    <div className="absolute -right-4 -bottom-4 opacity-10">
-                                        <ShieldCheck className="h-24 w-24" />
-                                    </div>
-                                    <div className="relative z-10">
-                                        <p className="text-[10px] font-black uppercase tracking-[0.2em] opacity-80 mb-1">Payment Status</p>
-                                        <p className="text-xl font-black tracking-tight underline decoration-indigo-400 decoration-4 underline-offset-4">Funds Released</p>
-                                    </div>
-                                    <div className="h-12 w-12 bg-white/20 backdrop-blur-md rounded-2xl flex items-center justify-center">
-                                        <CheckCircle2 className="h-6 w-6" />
-                                    </div>
-                                </div>
-                            )}
                         </div>
                     </div>
 
-                    {/* ── Right Sidebar ── */}
-                    <div className="space-y-5">
-                        {/* Office Efficiency Metrics */}
-                        <div className="bg-white rounded-3xl border border-zinc-100 shadow-lg p-6">
-                            <p className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em] mb-6 border-b border-zinc-50 pb-4">Verification Efficiency</p>
+                    {/* Right Column: Proof Verification */}
+                    <div className="lg:col-span-4 space-y-8">
+                        {/* Document Proof Section */}
+                        <div className="bg-white rounded-[2rem] p-6 sm:p-8 border border-zinc-200 shadow-sm text-center flex flex-col items-center group">
+                            <div className="mx-auto h-12 w-12 rounded-2xl bg-zinc-50 group-hover:bg-indigo-50 border border-zinc-200 group-hover:border-indigo-100 flex items-center justify-center mb-4 transition-colors">
+                                <ImageIcon className="h-6 w-6 text-zinc-500 group-hover:text-indigo-600 transition-colors" />
+                            </div>
+                            <h4 className="text-lg font-bold text-zinc-900 mb-1">Instrument Proof</h4>
+                            <p className="text-sm font-medium text-zinc-500 mb-6">Electronic Cheque Instrument</p>
                             
-                            <div className="space-y-5">
-                                {officeStats.map((stat, idx) => (
-                                    <div key={idx} className="flex items-center justify-between">
-                                        <div className="flex items-center gap-3">
-                                            <div className="h-2 w-2 rounded-full bg-indigo-500" />
-                                            <span className="text-xs font-bold text-zinc-700">{stat.office}</span>
-                                        </div>
-                                        <div className="flex items-center gap-1.5 text-indigo-600 font-black text-[10px] uppercase bg-indigo-50 px-2 py-0.5 rounded-lg border border-indigo-100">
-                                            <Timer className="h-3 w-3" />
-                                            {stat.duration}
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-
-                            <hr className="my-6 border-dashed border-zinc-100" />
-
-                            <div className="space-y-4 pb-2">
-                                <div className="flex items-center gap-3">
-                                    <div className="h-9 w-9 shrink-0 bg-indigo-50 rounded-xl flex items-center justify-center text-indigo-600">
-                                        <Timer className="h-4 w-4" />
-                                    </div>
-                                    <div>
-                                        <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-wider">Total Time Elapsed</p>
-                                        <p className="text-base font-black text-zinc-900">{hrs}h {mins}m</p>
-                                    </div>
-                                </div>
-                                <div className="flex items-center gap-3">
-                                    <div className="h-9 w-9 shrink-0 bg-emerald-50 rounded-xl flex items-center justify-center text-emerald-600">
-                                        <UserCog className="h-4 w-4" />
-                                    </div>
-                                    <div>
-                                        <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-wider">Total Custodian</p>
-                                        <p className="text-base font-black text-zinc-900">{cheque.currentOffice}</p>
+                            <div className="w-full relative rounded-2xl overflow-hidden border border-zinc-200 mb-6 cursor-pointer" onClick={() => setIsModalOpen(true)}>
+                                <div className="aspect-[4/3] bg-zinc-100 w-full relative">
+                                    <img 
+                                        src="https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?w=800&q=80" 
+                                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
+                                        alt="Cheque Proof"
+                                    />
+                                    <div className="absolute inset-0 bg-zinc-900/0 opacity-0 group-hover:opacity-100 group-hover:bg-zinc-900/30 transition-all duration-300 flex items-center justify-center backdrop-blur-[2px]">
+                                        <ArrowUpRight className="h-8 w-8 text-white drop-shadow-lg" />
                                     </div>
                                 </div>
                             </div>
-                        </div>
 
-                        {/* Quick Links */}
-                        <div className="bg-zinc-900 rounded-3xl p-5 text-white shadow-lg">
-                            <p className="text-[9px] font-bold text-zinc-500 uppercase tracking-widest mb-3">Quick Links</p>
-                            <div className="space-y-1">
-                                <Link
-                                    href={`/admin/users?query=${cheque.accountName}`}
-                                    className="flex items-center justify-between px-3 py-2.5 rounded-xl hover:bg-zinc-800 transition-colors"
-                                >
-                                    <span className="text-xs font-semibold">User Profile</span>
-                                    <ExternalLink className="h-3.5 w-3.5 text-zinc-500" />
-                                </Link>
-                                <Link
-                                    href="/admin/cheques"
-                                    className="flex items-center justify-between px-3 py-2.5 rounded-xl hover:bg-zinc-800 transition-colors"
-                                >
-                                    <span className="text-xs font-semibold">All Cheques</span>
-                                    <ExternalLink className="h-3.5 w-3.5 text-zinc-500" />
-                                </Link>
-                                <Link
-                                    href="/admin/dashboard"
-                                    className="flex items-center justify-between px-3 py-2.5 rounded-xl hover:bg-zinc-800 transition-colors"
-                                >
-                                    <span className="text-xs font-semibold">Dashboard</span>
-                                    <ExternalLink className="h-3.5 w-3.5 text-zinc-500" />
-                                </Link>
-                            </div>
+                            <Button 
+                                className="w-full bg-zinc-900 hover:bg-zinc-800 text-white rounded-xl py-6 font-bold shadow-lg shadow-zinc-200"
+                                onClick={() => setIsModalOpen(true)}
+                            >
+                                Inspect Proof
+                            </Button>
                         </div>
-
                     </div>
                 </div>
             </main>
+
+            {/* Document Inspection Modal */}
+            <AnimatePresence>
+                {isModalOpen && (
+                    <motion.div 
+                        initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                        className="fixed inset-0 z-[60] flex items-center justify-center p-4 sm:p-8 bg-zinc-900/80 backdrop-blur-xl"
+                        onClick={() => setIsModalOpen(false)}
+                    >
+                        <motion.div 
+                            initial={{ scale: 0.95, opacity: 0, y: 20 }} 
+                            animate={{ scale: 1, opacity: 1, y: 0 }}
+                            exit={{ scale: 0.95, opacity: 0, y: 20 }}
+                            className="bg-zinc-50 rounded-[2rem] p-2 max-w-5xl w-full relative shadow-2xl overflow-hidden"
+                            onClick={e => e.stopPropagation()}
+                        >
+                            <div className="absolute top-6 left-6 z-10 bg-white/90 backdrop-blur-md px-4 py-2.5 rounded-xl text-sm font-bold text-zinc-900 shadow-sm border border-zinc-200 flex items-center gap-2">
+                                <ShieldCheck className="h-4 w-4 text-emerald-500" />
+                                Verified Instrument
+                            </div>
+                            <button 
+                                onClick={() => setIsModalOpen(false)}
+                                className="absolute top-6 right-6 z-10 h-11 w-11 bg-white/90 hover:bg-white backdrop-blur-md rounded-full flex items-center justify-center shadow-lg border border-zinc-200 text-zinc-600 transition-colors"
+                            >
+                                <X className="h-5 w-5" />
+                            </button>
+                            <div className="p-4 sm:p-10 flex min-h-[50vh] items-center justify-center bg-zinc-200/50 rounded-[1.5rem] border border-zinc-200/50">
+                                <img 
+                                    src="https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?w=1600&q=80" 
+                                    className="w-full max-h-[75vh] object-contain shadow-2xl rounded-xl"
+                                    alt="High Resolution Proof"
+                                />
+                            </div>
+                        </motion.div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
         </div>
     );
 }

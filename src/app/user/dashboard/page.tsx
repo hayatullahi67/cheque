@@ -4,7 +4,7 @@ import { Card, CardHeader } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Table, THead, TBody, TH, TR, TD } from "@/components/ui/Table";
 import { Badge } from "@/components/ui/Badge";
-import { FilePlus, Bell, ArrowRight, Wallet, Zap, ShieldCheck, Cpu, AlertCircle, Fingerprint } from "lucide-react";
+import { FilePlus, Bell, ArrowRight, Wallet, Zap, ShieldCheck, Cpu, AlertCircle, Fingerprint, Building2, Eye } from "lucide-react";
 import { mockCheques } from "@/lib/mock-data";
 import { formatCurrency, formatDate, cn } from "@/lib/helpers";
 import Link from "next/link";
@@ -46,7 +46,6 @@ export default function UserDashboard() {
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-                {/* Main Action Hub */}
                 <div className="lg:col-span-8 space-y-8">
                     <Card className="relative overflow-hidden bg-zinc-900 border-none shadow-2xl group min-h-[320px] flex flex-col">
                         <div className="absolute inset-0 bg-gradient-to-br from-indigo-600/20 to-transparent" />
@@ -75,115 +74,97 @@ export default function UserDashboard() {
                             </Link>
                         </div>
                     </Card>
-
-                    <Card className="border-none ring-1 ring-zinc-100 shadow-sm overflow-hidden rounded-[2rem]">
-                        <CardHeader
-                            title="Recent Activity"
-                            subtitle="Last 10 transactions in your workspace"
-                            action={
-                                <Link href="/user/history">
-                                    <Button variant="ghost" size="sm" className="text-[10px] font-black uppercase text-zinc-400">View Full History</Button>
-                                </Link>
-                            }
-                        />
-                        <div className="overflow-x-auto">
-                            <Table>
-                                <THead>
-                                    <TR className="bg-zinc-50/50">
-                                        <TH className="text-[10px] uppercase tracking-widest py-4">Reference</TH>
-                                        <TH className="text-[10px] uppercase tracking-widest py-4">Amount</TH>
-                                        <TH className="text-[10px] uppercase tracking-widest py-4 text-center">Live Status</TH>
-                                        <TH className="text-[10px] uppercase tracking-widest py-4 text-right">Action</TH>
-                                    </TR>
-                                </THead>
-                                <TBody>
-                                    {myCheques.slice(0, 5).map((cheque) => (
-                                        <TR key={cheque.id} className="hover:bg-zinc-50/80 transition-colors">
-                                            <TD>
-                                                <div className="flex flex-col">
-                                                    <span className="font-mono font-black text-zinc-900 text-sm tracking-tighter">{cheque.chequeNumber}</span>
-                                                    <span className="text-[9px] text-zinc-400 font-bold uppercase mt-1">{formatDate(cheque.submittedAt)}</span>
-                                                </div>
-                                            </TD>
-                                            <TD>
-                                                <span className="font-black text-zinc-900">{formatCurrency(cheque.amount)}</span>
-                                            </TD>
-                                            <TD className="text-center">
-                                                <Badge status={cheque.status} />
-                                            </TD>
-                                            <TD className="text-right">
-                                                <Link href={`/user/cheques/${cheque.id}`}>
-                                                    <Button variant="ghost" size="sm" className="h-8 w-8 rounded-full p-0 flex items-center justify-center hover:bg-indigo-50 hover:text-indigo-600">
-                                                        <ArrowRight className="h-4 w-4" />
-                                                    </Button>
-                                                </Link>
-                                            </TD>
-                                        </TR>
-                                    ))}
-                                </TBody>
-                            </Table>
-                        </div>
-                    </Card>
                 </div>
 
                 {/* Sidebar Intelligence */}
                 <div className="lg:col-span-4 space-y-8">
                     <Card className="p-8 border-none ring-1 ring-zinc-100 shadow-sm bg-indigo-50/30">
-                        <div className="flex items-center justify-between mb-8">
-                            <div className="flex items-center gap-3">
-                                <div className="h-10 w-10 rounded-xl bg-white shadow-sm flex items-center justify-center text-indigo-600">
-                                    <Bell className="h-5 w-5" />
-                                </div>
-                                <h3 className="text-sm font-black text-zinc-900 uppercase tracking-tight">Security Intel</h3>
+                        <div className="flex items-center gap-3 mb-8">
+                            <div className="h-10 w-10 rounded-xl bg-white shadow-sm flex items-center justify-center text-indigo-600">
+                                <Building2 className="h-5 w-5" />
                             </div>
-                            <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+                            <div>
+                                <h3 className="text-sm font-black text-zinc-900 uppercase tracking-tight">Verification Path</h3>
+                                <p className="text-[10px] text-zinc-400 font-bold uppercase tracking-widest mt-0.5">Clearing sequence</p>
+                            </div>
                         </div>
                         
-                        <div className="space-y-6">
-                            {[1, 2, 3].map((i) => (
-                                <motion.div 
-                                    whileHover={{ x: 4 }}
-                                    key={i} 
-                                    className="flex gap-4 p-5 rounded-3xl bg-white border border-indigo-100/50 hover:border-indigo-200 shadow-sm transition-all"
-                                >
-                                    <div className="shrink-0 h-10 w-10 rounded-2xl bg-indigo-50 flex items-center justify-center text-indigo-400">
-                                        <AlertCircle className="h-5 w-5" />
+                        <div className="space-y-4">
+                            {[
+                                { name: "Customer Service", desc: "Initial entry & screening" },
+                                { name: "Branch Controller", desc: "Internal node authorization" },
+                                { name: "Teller Unit", desc: "Final disbursement point" },
+                                { name: "Settlement Node", desc: "Audit & record archival" }
+                            ].map((office, i) => (
+                                <div key={i} className="flex items-center gap-4 p-4 rounded-2xl bg-white border border-indigo-100/50 hover:shadow-sm transition-all group">
+                                    <div className="h-8 w-8 rounded-full bg-indigo-50 flex items-center justify-center text-[10px] font-black text-indigo-400 group-hover:bg-indigo-600 group-hover:text-white transition-colors">
+                                        {i + 1}
                                     </div>
-                                    <div className="space-y-1">
-                                        <p className="text-[11px] text-zinc-600 font-bold leading-relaxed">
-                                            Transfer <span className="text-zinc-900 font-black tracking-tight">#TR-00{i}</span> successfully authorized to external node.
-                                        </p>
-                                        <p className="text-[9px] text-zinc-400 font-bold uppercase">2 hours ago</p>
+                                    <div>
+                                        <p className="text-[11px] text-zinc-900 font-black tracking-tight">{office.name}</p>
+                                        <p className="text-[9px] text-zinc-400 font-bold uppercase tracking-wider">{office.desc}</p>
                                     </div>
-                                </motion.div>
+                                </div>
                             ))}
-                        </div>
-                        
-                        <Button variant="ghost" className="w-full mt-8 text-zinc-400 font-black text-[10px] uppercase tracking-widest hover:bg-white hover:text-indigo-600 transition-all py-6">
-                            Clear Audit Trail
-                        </Button>
-                    </Card>
-
-                    <Card className="p-8 border-none ring-1 ring-zinc-100 shadow-sm relative overflow-hidden group">
-                        <div className="absolute top-0 right-0 p-12 opacity-10 group-hover:rotate-12 transition-transform">
-                            <Fingerprint className="h-32 w-32" />
-                        </div>
-                        <h4 className="text-[10px] font-black text-indigo-600 uppercase tracking-[0.3em] mb-4">Identity verified</h4>
-                        <h3 className="text-lg font-black text-zinc-900 tracking-tight mb-2">Biometric Protection</h3>
-                        <p className="text-[11px] text-zinc-500 font-medium leading-relaxed mb-6">
-                            Your workspace is currently protected by Tier-1 biometric encryption. All activities are being recorded for your security.
-                        </p>
-                        <div className="h-1.5 w-full bg-zinc-100 rounded-full overflow-hidden">
-                            <motion.div 
-                                initial={{ width: "0%" }}
-                                animate={{ width: "100%" }}
-                                transition={{ duration: 3, repeat: Infinity }}
-                                className="h-full bg-emerald-500" 
-                            />
                         </div>
                     </Card>
                 </div>
             </div>
+
+            {/* Full-width Recent Activity Section - Replicating History Page Table Style */}
+            <Card className="border-transparent shadow-premium overflow-hidden rounded-[2.5rem]">
+                <div className="px-5 sm:px-7 py-5 sm:py-6 border-b border-zinc-100 bg-gradient-to-r from-white to-zinc-50/30">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                        <div className="space-y-1">
+                            <h3 className="text-base sm:text-lg font-black text-zinc-900 tracking-tight leading-none">Recent Activity</h3>
+                            <p className="text-[10px] sm:text-xs text-zinc-400 font-medium font-mono uppercase tracking-wider">Latest workspace events</p>
+                        </div>
+                        <Link href="/user/history">
+                            <div className="w-fit flex items-center gap-2 text-[10px] font-black text-indigo-600 bg-indigo-50 px-4 py-2 rounded-full border border-indigo-100 uppercase tracking-widest hover:bg-indigo-100 transition-colors cursor-pointer">
+                                VIEW FULL HISTORY <ArrowRight className="h-3.5 w-3.5" />
+                            </div>
+                        </Link>
+                    </div>
+                </div>
+                <div className="overflow-x-auto">
+                    <Table>
+                        <THead>
+                            <TR>
+                                <TH>Request Ref</TH>
+                                <TH>Operation Type</TH>
+                                <TH>Process Date</TH>
+                                <TH>Final Status</TH>
+                                <TH className="text-right">Action</TH>
+                            </TR>
+                        </THead>
+                        <TBody>
+                            {myCheques.slice(0, 10).map((cheque) => {
+                                const opType = cheque.amount > 500000 ? 'Cash Deposit' : (cheque.amount < 100000 ? 'Box Request' : 'Withdrawal');
+                                return (
+                                    <TR key={cheque.id} className="hover:bg-zinc-50/50 transition-colors">
+                                        <TD className="font-mono font-black text-zinc-400">{cheque.chequeNumber}</TD>
+                                        <TD>
+                                            <div className="flex items-center gap-2">
+                                                <div className="h-1.5 w-1.5 rounded-full bg-indigo-500" />
+                                                <span className="font-bold text-zinc-900">{opType}</span>
+                                            </div>
+                                        </TD>
+                                        <TD className="text-zinc-500 font-bold">{formatDate(cheque.submittedAt)}</TD>
+                                        <TD><Badge status={cheque.status} /></TD>
+                                        <TD className="text-right">
+                                            <Link href={`/user/cheques/${cheque.id}`}>
+                                                <Button variant="ghost" size="sm" className="h-9 px-3 text-indigo-600 hover:bg-indigo-50 font-black text-[10px] transition-all whitespace-nowrap">
+                                                    <Eye className="mr-2 h-4 w-4" /> View Details
+                                                </Button>
+                                            </Link>
+                                        </TD>
+                                    </TR>
+                                );
+                            })}
+                        </TBody>
+                    </Table>
+                </div>
+            </Card>
         </div>
     );
 }

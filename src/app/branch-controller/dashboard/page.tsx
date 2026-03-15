@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { ShieldCheck, FileText, Scan, Zap, AlertTriangle } from "lucide-react";
 import { mockCheques } from "@/lib/mock-data";
-import { formatCurrency } from "@/lib/helpers";
+import { formatCurrency, formatDate } from "@/lib/helpers";
 import { ChequeStatus } from "@/lib/constants";
 
 export default function BranchDashboard() {
@@ -75,50 +75,68 @@ export default function BranchDashboard() {
                 </div>
             </div>
 
-            <Card className="border-transparent shadow-premium overflow-hidden">
-                <CardHeader
-                    title="Physical Verification Queue"
-                    subtitle="Branch Controller workload: Validating physical characteristics of submitted leaves"
-                />
-                <Table>
-                    <THead>
-                        <TR>
-                            <TH>Beneficiary</TH>
-                            <TH>Cheque Ref</TH>
-                            <TH>Amount</TH>
-                            <TH>Verify Window</TH>
-                            <TH className="text-right">Action</TH>
-                        </TR>
-                    </THead>
-                    <TBody>
-                        {relevantCheques.map((cheque) => (
-                            <TR key={cheque.id}>
-                                <TD className="font-bold text-zinc-900">{cheque.accountName}</TD>
-                                <TD className="font-mono font-black text-zinc-400">{cheque.chequeNumber}</TD>
-                                <TD className="font-black text-zinc-900 text-lg">{formatCurrency(cheque.amount)}</TD>
-                                <TD>
-                                    <div className="flex items-center gap-2">
-                                        <div className="h-2 w-2 rounded-full bg-amber-500 animate-pulse" />
-                                        <span className="text-[10px] font-black uppercase tracking-widest text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full ring-1 ring-amber-100">30 MINS</span>
-                                    </div>
-                                </TD>
-                                <TD className="text-right">
-                                    <Button
-                                        className="h-9 px-5 bg-zinc-900 text-white hover:bg-zinc-800 text-[10px] font-black"
-                                        size="sm"
-                                        onClick={() => router.push(`/branch-controller/verify/${cheque.id}`)}
-                                    >
-                                        <ShieldCheck className="mr-2 h-3.5 w-3.5" /> START VERIFY
-                                    </Button>
-                                </TD>
+            <Card className="border-transparent shadow-premium overflow-hidden mt-10">
+                <div className="px-5 sm:px-7 py-5 sm:py-6 border-b border-zinc-100 bg-gradient-to-r from-white to-zinc-50/30">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                        <div className="space-y-1">
+                            <h3 className="text-base sm:text-lg font-black text-zinc-900 tracking-tight leading-none">Security Clearance Queue</h3>
+                            <p className="text-[10px] sm:text-xs text-zinc-400 font-medium font-mono uppercase tracking-wider">Awaiting physical leaf authentication</p>
+                        </div>
+                        <div className="w-fit flex items-center gap-2 text-[10px] font-black text-amber-600 bg-amber-50 px-3 py-1.5 rounded-full border border-amber-100 uppercase tracking-widest">
+                            <ShieldCheck className="h-3.5 w-3.5" /> {relevantCheques.length} Active Requests
+                        </div>
+                    </div>
+                </div>
+
+                <div className="overflow-x-auto">
+                    <Table>
+                        <THead>
+                            <TR>
+                                <TH>Request Ref</TH>
+                                <TH>Beneficiary</TH>
+                                <TH>Operation Type</TH>
+                                <TH>Assigned Date</TH>
+                                <TH>Status</TH>
+                                <TH className="text-right">Security Protocol</TH>
                             </TR>
-                        ))}
-                    </TBody>
-                </Table>
+                        </THead>
+                        <TBody>
+                            {relevantCheques.map((cheque) => {
+                                const opType = cheque.requestType === 'WITHDRAWAL' ? 'Withdrawal' : (cheque.requestType === 'DEPOSIT' ? 'Cash Deposit' : 'Box Request');
+                                return (
+                                    <TR key={cheque.id} className="hover:bg-zinc-50/50 transition-colors">
+                                        <TD className="font-mono font-black text-zinc-400">{cheque.chequeNumber}</TD>
+                                        <TD className="font-bold text-zinc-900">{cheque.accountName}</TD>
+                                        <TD>
+                                            <div className="flex items-center gap-2">
+                                                <div className="h-1.5 w-1.5 rounded-full bg-indigo-500" />
+                                                <span className="font-bold text-zinc-900">{opType}</span>
+                                            </div>
+                                        </TD>
+                                        <TD className="text-zinc-500 font-bold">{formatDate(cheque.submittedAt)}</TD>
+                                        <TD><Badge status={cheque.status} /></TD>
+                                        <TD className="text-right">
+                                            <Button
+                                                className="h-9 px-4 bg-zinc-900 text-white hover:bg-black font-black text-[10px] uppercase tracking-widest rounded-xl transition-all shadow-sm"
+                                                size="sm"
+                                                onClick={() => router.push(`/branch-controller/verify/${cheque.id}`)}
+                                            >
+                                                <ShieldCheck className="mr-2 h-4 w-4" /> Start Verify
+                                            </Button>
+                                        </TD>
+                                    </TR>
+                                );
+                            })}
+                        </TBody>
+                    </Table>
+                </div>
+
                 {relevantCheques.length === 0 && (
-                    <div className="py-24 text-center bg-zinc-50/20">
-                        <FileText className="h-12 w-12 text-zinc-200 mx-auto mb-4" />
-                        <p className="text-zinc-400 font-black uppercase tracking-[0.2em] text-[10px]">No pending verifications at this terminal.</p>
+                    <div className="py-32 text-center bg-zinc-50/30">
+                        <div className="h-20 w-20 bg-zinc-100 rounded-[2rem] flex items-center justify-center mx-auto mb-6 text-zinc-300 shadow-inner">
+                            <FileText className="h-10 w-10" />
+                        </div>
+                        <p className="text-zinc-400 font-black uppercase tracking-[0.2em] text-xs">No pending verifications found</p>
                     </div>
                 )}
             </Card>

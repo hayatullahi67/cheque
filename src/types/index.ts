@@ -26,6 +26,12 @@ export interface ChequeRequest {
     accountNumber: string;
     chequeNumber: string;
     amount: number;
+    requestType?: 'WITHDRAWAL' | 'DEPOSIT' | 'BOX';
+    boxAction?: 'REQUEST' | 'RETURN';
+    numberOfBoxes?: number;
+    oidMatch?: string;
+    imageUrl?: string;
+    denominations?: {bill: string; count: number; total: number}[];
     phoneNumber: string;
     bankBranch: string;
     status: ChequeStatus;
